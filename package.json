@@ -10,8 +10,13 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run src/test/*.test.ts*",
+    "test:e2e": "playwright test",
+    "test:all": "npm run typecheck && npm run lint && npm test"
   },
   "overrides": {
     "rolldown": "1.2.1"
