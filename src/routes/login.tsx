@@ -12,6 +12,7 @@ import {
   registerSchema,
   loginSchema,
 } from "@/services/auth";
+import { fetchProfile } from "@/services/profiles";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -188,6 +189,13 @@ function Auth() {
       }
 
       setDone(true);
+      let isOnboarded = false;
+      if (res.user?.id) {
+        const profile = await fetchProfile(res.user.id);
+        if (profile) {
+          isOnboarded = profile.onboarding_completed;
+        }
+      }
       setDemo({
         session: {
           id: res.user?.id,
@@ -195,9 +203,10 @@ function Auth() {
           email: res.user?.email || f.email,
           demo: false,
         },
+        onboarded: isOnboarded,
       });
       toast.success("Welcome back to Cesium!");
-      setTimeout(() => nav({ to: "/discover" }), 650);
+      setTimeout(() => nav({ to: isOnboarded ? "/discover" : "/onboarding" }), 650);
     }
   };
 

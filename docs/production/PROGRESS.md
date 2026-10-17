@@ -3,8 +3,8 @@
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.
 
 **Last Updated**: 2026-10-17  
-**Current Phase**: Phase 3 — Seed Data & Graph Relations (COMPLETED)  
-**Active Branch**: `phase-3-seed-data-graph`
+**Current Phase**: Phase 4 — Authentication & Onboarding Flow (COMPLETED)  
+**Active Branch**: `phase-4-authentication-onboarding`
 
 ---
 
@@ -16,7 +16,7 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | **Phase 1**  | **Environment & Supabase Configuration**  | **PASS** ✅ | `docs/production/phase-1.md`  | Zod env validation active; typesafe Supabase client; 0 tsc errors (down from 69); 0 lint errors; 33/33 Unit & 8/8 E2E pass |
 | **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  |         3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass         |
 | **Phase 3**  | **Seed Data & Graph Relations**           | **PASS** ✅ | `docs/production/phase-3.md`  |    4 versioned migrations; 29 catalog interests; cross-domain bridges; symmetric traversal; 52/52 Vitest & 8/8 E2E pass    |
-| **Phase 4**  | Authentication & Onboarding Flow          |   PENDING   | `docs/production/phase-4.md`  |                                                             —                                                              |
+| **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |    5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass    |
 | **Phase 5**  | Profile & Constellation State             |   PENDING   | `docs/production/phase-5.md`  |                                                             —                                                              |
 | **Phase 6**  | Deterministic Matching Engine             |   PENDING   | `docs/production/phase-6.md`  |                                                             —                                                              |
 | **Phase 7**  | Uncommon Ground Discovery                 |   PENDING   | `docs/production/phase-7.md`  |                                                             —                                                              |
@@ -101,6 +101,29 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Audit bespoke conversation starters covering all 29 seed interests (`getIcebreakerStarters()`).
 - [x] Create dedicated test suite `src/test/seed-data-graph.test.ts` (15 tests).
 - [x] Verify complete test suite execution (52/52 Vitest unit and integration tests passing).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`eslint .` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 4 Checklist
+
+- [x] Implement robust handle availability and format verification service (`isHandleAvailable()`).
+- [x] Harden `RequireAuth` route guard with `requireOnboarded` parameter and strict redirect to `/onboarding`.
+- [x] Synchronize remote Supabase profile and user interests with local store on `getSession()` and `onAuthStateChange()`.
+- [x] Implement state purge (`resetDemo()`) on user sign-out (`signOutUser()`).
+- [x] Update sign-in and sign-up flows in `src/routes/login.tsx` to conditionally route based on onboarding completion status.
+- [x] Implement complete 5-step onboarding flow in `src/routes/onboarding.tsx`:
+  - Step 001: Handle & Identity with format validation and availability check.
+  - Step 002: Curated Interests with strict 3+ selection gate and dynamic counter.
+  - Step 003: Personal Constellation with interactive niche obsession badge tagging.
+  - Step 004: Conversation Style selector and personal bio with character counter.
+  - Step 005: First Discovery Overlap match preview using deterministic match engine.
+- [x] Persist onboarding data to Supabase `profiles` table (`onboarding_completed: true`).
+- [x] Create dedicated Phase 4 test suite in `src/test/auth-onboarding.test.ts` (12 tests).
+- [x] Verify complete test suite execution (64/64 Vitest unit and integration tests passing).
 - [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
 - [x] Verify zero ESLint errors (`eslint .` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).

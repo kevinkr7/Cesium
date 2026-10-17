@@ -58,9 +58,42 @@ const defaults: DemoState = {
   },
 };
 
+import { fetchProfile } from "@/services/profiles";
+import { fetchUserInterests } from "@/services/interests";
+
 let state: DemoState = defaults;
 let loaded = false;
 const listeners = new Set<() => void>();
+
+async function syncUserSession(userId: string, defaultName: string, email: string) {
+  let profile = null;
+  let userInterests = null;
+  try {
+    profile = await fetchProfile(userId);
+    userInterests = await fetchUserInterests(userId);
+  } catch (err) {
+    void err;
+  }
+
+  setDemo((prev) => ({
+    session: {
+      id: userId,
+      name: profile?.display_name || defaultName,
+      email: email,
+      demo: false,
+    },
+    onboarded: profile ? profile.onboarding_completed : prev.onboarded,
+    bio: profile?.bio ?? prev.bio,
+    topics: profile?.topics ?? prev.topics,
+    styles:
+      profile?.conversation_style && profile.conversation_style.length > 0
+        ? profile.conversation_style
+        : prev.styles,
+    interests:
+      userInterests && userInterests.standard.length > 0 ? userInterests.standard : prev.interests,
+    niche: userInterests && userInterests.niche.length > 0 ? userInterests.niche : prev.niche,
+  }));
+}
 
 function load() {
   if (loaded || typeof window === "undefined") return;
@@ -77,33 +110,21 @@ function load() {
   if (sb) {
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setDemo({
-          session: {
-            id: session.user.id,
-            name:
-              (session.user.user_metadata?.["display_name"] as string) ||
-              (session.user.email?.split("@")[0] ?? "Visitor"),
-            email: session.user.email ?? "",
-            demo: false,
-          },
-        });
+        const u = session.user;
+        const name =
+          (u.user_metadata?.["display_name"] as string) || (u.email?.split("@")[0] ?? "Visitor");
+        syncUserSession(u.id, name, u.email ?? "");
       }
     });
 
     sb.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setDemo({
-          session: {
-            id: session.user.id,
-            name:
-              (session.user.user_metadata?.["display_name"] as string) ||
-              (session.user.email?.split("@")[0] ?? "Visitor"),
-            email: session.user.email ?? "",
-            demo: false,
-          },
-        });
+        const u = session.user;
+        const name =
+          (u.user_metadata?.["display_name"] as string) || (u.email?.split("@")[0] ?? "Visitor");
+        syncUserSession(u.id, name, u.email ?? "");
       } else {
-        setDemo({ session: null });
+        setDemo({ session: null, onboarded: false });
       }
     });
   }
@@ -122,13 +143,18 @@ export function setDemo(patch: Partial<DemoState> | ((s: DemoState) => Partial<D
 }
 
 export function resetDemo() {
-  state = defaults;
+  state = { ...defaults, session: null, onboarded: false };
   try {
     localStorage.removeItem(KEY);
   } catch (err) {
     void err;
   }
   listeners.forEach((l) => l());
+}
+
+export function getDemoState(): DemoState {
+  load();
+  return state;
 }
 
 export function useDemo() {
