@@ -52,7 +52,10 @@ function Discover() {
     let active = true;
     setLoading(true);
     const currentMine = [...demo.interests, ...demo.niche];
-    fetchDiscoveryPeople(currentMine, f, q, demo.connections).then((data) => {
+    fetchDiscoveryPeople(currentMine, f, q, demo.connections, {
+      primaryInterests: demo.interests.slice(0, 3),
+      myStyles: demo.styles,
+    }).then((data) => {
       if (active) {
         setCandidates(data);
         setLoading(false);
@@ -61,7 +64,7 @@ function Discover() {
     return () => {
       active = false;
     };
-  }, [q, f, mineKey, connectionsKey]);
+  }, [q, f, mineKey, connectionsKey, demo.connections, demo.interests, demo.niche, demo.styles]);
 
   return (
     <section className="gutter min-h-[100svh] pb-24 pt-32">

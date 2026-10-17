@@ -1,8 +1,8 @@
 # CESIUM — PRODUCTION ROADMAP & PROGRESS TRACKER
 
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-17  
-**Current Phase**: Phase 5 — Profile & Constellation State (COMPLETED)  
-**Active Branch**: `phase-5-profile-constellation`
+**Current Phase**: Phase 6 — Deterministic Matching Engine (COMPLETED)  
+**Active Branch**: `phase-6-deterministic-matching-engine`
 
 ---
 
@@ -15,8 +15,8 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  |         3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass         |
 | **Phase 3**  | **Seed Data & Graph Relations**           | **PASS** ✅ | `docs/production/phase-3.md`  |    4 versioned migrations; 29 catalog interests; cross-domain bridges; symmetric traversal; 52/52 Vitest & 8/8 E2E pass    |
 | **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |    5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass     |
-| **Phase 5**  | **Profile & Constellation State**         | **PASS** ✅ | `docs/production/phase-5.md`  |    Profile settings modal; avatar upload; 3+ curated interest guard; node type toggling; 79/79 Vitest & 8/8 E2E pass     |               |
-| **Phase 6**  | Deterministic Matching Engine             |   PENDING   | `docs/production/phase-6.md`  |                                                             —                                                              |
+| **Phase 5**  | **Profile & Constellation State**         | **PASS** ✅ | `docs/production/phase-5.md`  |    Profile settings modal; avatar upload; 3+ curated interest guard; node type toggling; 79/79 Vitest & 8/8 E2E pass     |
+| **Phase 6**  | **Deterministic Matching Engine**         | **PASS** ✅ | `docs/production/phase-6.md`  |   Jaccard base + style synergy + cross-domain bridges; bounded 0-100; 87/87 Vitest & 8/8 E2E pass; 0 tsc & lint errors    |
 | **Phase 7**  | Uncommon Ground Discovery                 |   PENDING   | `docs/production/phase-7.md`  |                                                             —                                                              |
 | **Phase 8**  | Connections & Relationship Lifecycle      |   PENDING   | `docs/production/phase-8.md`  |                                                             —                                                              |
 | **Phase 9**  | Icebreakers & Realtime Messaging          |   PENDING   | `docs/production/phase-9.md`  |                                                             —                                                              |
@@ -146,4 +146,27 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Verify zero ESLint errors (`eslint .` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
 - [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 6 Checklist
+
+- [x] Implement deterministic Jaccard similarity index ($\frac{|\text{shared}|}{|\text{mine} \cup \text{theirs}|} \times 60$) in `src/services/discovery.ts`.
+- [x] Implement primary interest overlap bonus ($+12$ points per shared primary interest).
+- [x] Implement category diversity bonus ($+6$ points per shared unique category).
+- [x] Implement conversation style synergy calculation (`calculateStyleSynergy()`) with $+6$ bonus for exact or complementary styles.
+- [x] Implement 1-hop cross-domain graph bridge detection (`findCrossDomainBridges()`) using curated constellation edges.
+- [x] Award weighted bridge bonus for non-overlapping interests connected via cross-domain bridges.
+- [x] Enforce strict mathematical bounding $0 \le \text{score} \le 100$ via `Math.min(100, Math.max(0, Math.round(score)))`.
+- [x] Implement factual explanation templates covering 3+, 2, 1, bridge-connected, and disjoint interest cases.
+- [x] Implement network timeout guard (`withTimeout(1500)`) wrapping Supabase `rpc_get_discovery` for resilient client-side fallback.
+- [x] Align candidate sorting with deterministic tie-breaking (`matchScore DESC, name ASC` and `matchScore ASC, name ASC` for uncommon connections).
+- [x] Pass conversation style and primary interests to discovery feed in `src/routes/discover.tsx`.
+- [x] Expand test suite in `src/test/matching-engine.test.ts` to 13 comprehensive tests.
+- [x] Verify complete test suite execution (87/87 Vitest unit and integration tests passing across 11 files).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`eslint .` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+
 
