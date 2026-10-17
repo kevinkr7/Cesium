@@ -3,7 +3,13 @@ import type { Community } from "./data";
 import { getSupabase } from "./supabase/client";
 import type { Profile } from "@/services/profiles";
 
-export type Msg = { id: string; from: "me" | "them"; text: string; at: number };
+export type Msg = {
+  id: string;
+  from: "me" | "them";
+  text: string;
+  at: number;
+  status?: "sending" | "sent" | "error" | undefined;
+};
 export type DemoState = {
   session: {
     id?: string | undefined;

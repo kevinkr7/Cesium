@@ -1,8 +1,8 @@
 # CESIUM — PRODUCTION ROADMAP & PROGRESS TRACKER
 
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-17  
-**Current Phase**: Phase 8 — Connections & Relationship Lifecycle (COMPLETED)  
-**Active Branch**: `phase-8-connections-lifecycle`
+**Current Phase**: Phase 9 — Icebreakers & Realtime Messaging (COMPLETED)  
+**Active Branch**: `phase-9-icebreakers-realtime`
 
 ---
 
@@ -19,7 +19,7 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | **Phase 6**  | **Deterministic Matching Engine**         | **PASS** ✅ | `docs/production/phase-6.md`  |    Jaccard base + style synergy + cross-domain bridges; bounded 0-100; 87/87 Vitest & 8/8 E2E pass; 0 tsc & lint errors    |
 | **Phase 7**  | **Uncommon Ground Discovery**             | **PASS** ✅ | `docs/production/phase-7.md`  |      Anchor analysis + serendipity scoring + UI perspective drawer; 98/98 Vitest & 8/8 E2E pass; 0 tsc & lint errors       |
 | **Phase 8**  | **Connections & Relationship Lifecycle**  | **PASS** ✅ | `docs/production/phase-8.md`  |    Transitions, pending inbox, request cancel, disconnect & gating; 108/108 Vitest & 8/8 E2E pass; 0 tsc & lint errors     |
-| **Phase 9**  | Icebreakers & Realtime Messaging          |   PENDING   | `docs/production/phase-9.md`  |                                                             —                                                              |
+| **Phase 9**  | **Icebreakers & Realtime Messaging**      | **PASS** ✅ | `docs/production/phase-9.md`  | Bridge starters, direct conv RPC, Realtime publication & delivery status; 121/121 Vitest & 8/8 E2E pass; 0 tsc/lint errors |
 | **Phase 10** | Micro-Communities & Threads               |   PENDING   | `docs/production/phase-10.md` |                                                             —                                                              |
 | **Phase 11** | Safety, Blocking & Content Moderation     |   PENDING   | `docs/production/phase-11.md` |                                                             —                                                              |
 | **Phase 12** | Production Hardening, RLS & Security      |   PENDING   | `docs/production/phase-12.md` |                                                             —                                                              |
@@ -204,6 +204,28 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Support disconnecting active connections from `ProfileSheet` drawer in `src/routes/discover.tsx`.
 - [x] Expand connection lifecycle test suite in `src/test/connection-lifecycle.test.ts` to 13 comprehensive tests.
 - [x] Verify complete test suite execution (108/108 Vitest unit and integration tests passing across 12 files).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`npm run lint` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 9 Checklist
+
+- [x] Create additive migration `supabase/migrations/20261017000004_realtime_messaging_rpc.sql` registering `public.messages` in `supabase_realtime` and creating `rpc_get_or_create_direct_conversation` and `rpc_mark_conversation_read`.
+- [x] Update TypeScript database definitions in `src/types/database.ts` with typed RPC signatures.
+- [x] Enhance icebreaker prompt generation in `src/services/messaging.ts` with cross-domain bridge questions, uncommon ground perspective prompts, case-insensitive interest matching, and custom count support.
+- [x] Implement message body validation (`validateMessageBody()`) enforcing 1 to 5000 character constraints and trimming.
+- [x] Implement bilateral conversation resolution (`getOrCreateDirectConversation()`) with active connection verification and offline fallback.
+- [x] Enhance `sendChatMessage()` to resolve peer user IDs to conversation UUIDs and dispatch via transactional RPC.
+- [x] Implement Supabase Realtime channel subscription (`subscribeToConversationMessages()`) with clean teardown.
+- [x] Implement conversation read receipt dispatch (`markConversationRead()`) updating `last_read_at` on conversation memberships.
+- [x] Update `src/routes/messages.tsx` with conversation ID resolution, real-time message sync, delivery status indicators (`sending` / `sent` / `failed`), cross-domain bridges in Connection context sidebar, and read receipts.
+- [x] Add optional delivery status to `Msg` in `src/lib/store.ts`.
+- [x] Configure `testTimeout: 15000` in `vitest.config.ts` to eliminate flakiness during multi-fallback network timeout tests.
+- [x] Expand test suite in `src/test/icebreakers.test.ts` to 15 comprehensive tests covering tailored icebreakers, bridges, uncommon ground anchors, validation, direct conversation resolution, offline messaging, and migration parity.
+- [x] Verify complete test suite execution (121/121 Vitest unit and integration tests passing across 12 files).
 - [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
 - [x] Verify zero ESLint errors (`npm run lint` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).

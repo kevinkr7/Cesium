@@ -441,6 +441,14 @@ export type Database = {
         Args: { p_conversation_id: string; p_body: string };
         Returns: { success: boolean; message_id: string };
       };
+      rpc_get_or_create_direct_conversation: {
+        Args: { p_peer_user_id: string };
+        Returns: { success: boolean; conversation_id: string };
+      };
+      rpc_mark_conversation_read: {
+        Args: { p_conversation_id: string };
+        Returns: { success: boolean };
+      };
       rpc_get_discovery: {
         Args: {
           p_filter?: string;
