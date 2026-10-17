@@ -3,8 +3,8 @@
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.
 
 **Last Updated**: 2026-10-17  
-**Current Phase**: Phase 1 — Environment & Supabase Configuration (COMPLETED)  
-**Active Branch**: `phase-1-environment-supabase`
+**Current Phase**: Phase 2 — Schema Migrations & Constraints (COMPLETED)  
+**Active Branch**: `phase-2-schema-constraints`
 
 ---
 
@@ -14,7 +14,7 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | :----------- | :---------------------------------------- | :---------: | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------: |
 | **Phase 0**  | **Baseline & Quality Gates**              | **PASS** ✅ | `docs/production/phase-0.md`  |                               Quality gates operational; 8/8 E2E & 19/19 Unit tests passing                                |
 | **Phase 1**  | **Environment & Supabase Configuration**  | **PASS** ✅ | `docs/production/phase-1.md`  | Zod env validation active; typesafe Supabase client; 0 tsc errors (down from 69); 0 lint errors; 33/33 Unit & 8/8 E2E pass |
-| **Phase 2**  | Schema Migrations & Constraints           |   PENDING   | `docs/production/phase-2.md`  |                                                             —                                                              |
+| **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  | 3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass                 |
 | **Phase 3**  | Seed Data & Graph Relations               |   PENDING   | `docs/production/phase-3.md`  |                                                             —                                                              |
 | **Phase 4**  | Authentication & Onboarding Flow          |   PENDING   | `docs/production/phase-4.md`  |                                                             —                                                              |
 | **Phase 5**  | Profile & Constellation State             |   PENDING   | `docs/production/phase-5.md`  |                                                             —                                                              |
@@ -64,3 +64,23 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Verify complete test suite execution (33/33 Vitest unit tests passing).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
 - [x] Verify production build (`npm run build` exits with 0).
+
+---
+
+## Phase 2 Checklist
+
+- [x] Audit all existing SQL migrations and identify missing RLS policies (`community_interests`, `profiles_insert`, `user_interests_update`, etc.).
+- [x] Create additive versioned migration `supabase/migrations/20261017000001_schema_constraints_and_rls.sql`.
+- [x] Resolve `community_interests` RLS omission with SELECT, INSERT, and DELETE policies.
+- [x] Add explicit `profiles_insert` policy allowing authenticated users to create/upsert their profile.
+- [x] Add `user_interests_update` policy for toggling primary/niche constellation flags.
+- [x] Add `conversations_insert` and reciprocal `conv_members_insert` RLS policies.
+- [x] Add message soft-delete/edit policy (`messages_update`).
+- [x] Add community thread/reply moderation and deletion policies.
+- [x] Add notification dismissal policy (`notifications_delete`).
+- [x] Configure `public_assets` storage bucket with public read and authenticated upload policies.
+- [x] Add high-frequency composite performance indexes (`idx_connections_status_users`, `idx_community_posts_author`, `idx_community_replies_author`, `idx_messages_conversation_time`).
+- [x] Expand database migrations test suite in `src/test/database-migrations.test.ts` to 8 comprehensive tests.
+- [x] Verify complete test suite execution (37/37 Vitest unit tests passing).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
