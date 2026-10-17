@@ -4,13 +4,14 @@
 **Status**: **PASS** ✅  
 **Date**: 2026-10-17  
 **Branch**: `phase-6-deterministic-matching-engine`  
-**Commit**: Pending remote push  
+**Commit**: Pending remote push
 
 ---
 
 ## 1. Initial State & Problems Identified
 
 Prior to Phase 6:
+
 1. **Simplified Client Formula**: The client-side `computeMatchScore` implemented basic Jaccard and primary bonuses, but lacked deep integration with cross-domain constellation graph bridges and conversation style resonance.
 2. **Missing Network Resilience & RPC Fallback**: Calls to `sb.rpc("rpc_get_discovery")` lacked explicit network timeouts, creating risk of UI freezing or hanging if the database RPC took too long or suffered latency spikes.
 3. **Absence of Mathematical Invariant Testing**: There were no automated tests asserting the core mathematical invariants of the matching engine:
@@ -24,19 +25,20 @@ Prior to Phase 6:
 
 ## 2. Files Changed & Purpose
 
-| File | Status | Purpose |
-| :--- | :--- | :--- |
-| `src/services/discovery.ts` | Modified | Enhanced `computeMatchScore()` with backward-compatible options, mathematical bounding, conversation style synergy, and 1-hop cross-domain graph bridge detection. Added `withTimeout(1500)` to `fetchDiscoveryPeople()` for robust fallback to client engine. Added deterministic tie-breaking to candidate sorting. |
-| `src/routes/discover.tsx` | Modified | Passed user conversation styles and primary interests to `fetchDiscoveryPeople()`, and cleanly resolved React exhaustive-deps warnings. |
-| `src/test/matching-engine.test.ts` | Expanded | Expanded test suite to 13 comprehensive tests covering mathematical bounds, symmetry, empty sets, primary bonuses, category diversity, style synergy, cross-domain bridges, hybrid explanations, search filtering, and candidate ranking. |
-| `docs/production/phase-6.md` | Created | Comprehensive verification report for Phase 6. |
-| `docs/production/PROGRESS.md` | Modified | Updated progress tracker with Phase 6 marked as PASS and detailed checklist. |
+| File                               | Status   | Purpose                                                                                                                                                                                                                                                                                                               |
+| :--------------------------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/discovery.ts`        | Modified | Enhanced `computeMatchScore()` with backward-compatible options, mathematical bounding, conversation style synergy, and 1-hop cross-domain graph bridge detection. Added `withTimeout(1500)` to `fetchDiscoveryPeople()` for robust fallback to client engine. Added deterministic tie-breaking to candidate sorting. |
+| `src/routes/discover.tsx`          | Modified | Passed user conversation styles and primary interests to `fetchDiscoveryPeople()`, and cleanly resolved React exhaustive-deps warnings.                                                                                                                                                                               |
+| `src/test/matching-engine.test.ts` | Expanded | Expanded test suite to 13 comprehensive tests covering mathematical bounds, symmetry, empty sets, primary bonuses, category diversity, style synergy, cross-domain bridges, hybrid explanations, search filtering, and candidate ranking.                                                                             |
+| `docs/production/phase-6.md`       | Created  | Comprehensive verification report for Phase 6.                                                                                                                                                                                                                                                                        |
+| `docs/production/PROGRESS.md`      | Modified | Updated progress tracker with Phase 6 marked as PASS and detailed checklist.                                                                                                                                                                                                                                          |
 
 ---
 
 ## 3. Database & SQL Alignment
 
 The TypeScript matching engine in `src/services/discovery.ts` is mathematically aligned with PostgreSQL's `rpc_get_discovery` in `supabase/migrations/20261015000001_initial_schema.sql`:
+
 - **Jaccard Base Score**: $\frac{|\text{shared}|}{|\text{mine} \cup \text{theirs}|} \times 60$.
 - **Primary Overlap Bonus**: $+12$ points per shared primary interest.
 - **Category Diversity Bonus**: $+6$ points per shared unique category.
@@ -68,13 +70,13 @@ The test suite in `src/test/matching-engine.test.ts` was expanded from 4 basic t
 
 ## 5. Commands Executed & Exit Codes
 
-| Command | Exit Code | Purpose | Output / Summary |
-| :--- | :---: | :--- | :--- |
-| `npm.cmd run typecheck` | `0` | TypeScript compile check | 0 errors (`tsc --noEmit`) |
-| `npm.cmd test` | `0` | Vitest Unit & Integration suite | 87/87 passing tests across 11 files |
-| `npm.cmd run lint` | `0` | ESLint static analysis | 0 errors (6 UI barrel warnings) |
-| `npm.cmd run test:e2e` | `0` | Playwright E2E browser tests | 8/8 passing across Desktop & Mobile |
-| `npm.cmd run build` | `0` | Nitro Cloudflare bundle build | Cloudflare worker bundle built in 2.12s |
+| Command                 | Exit Code | Purpose                         | Output / Summary                        |
+| :---------------------- | :-------: | :------------------------------ | :-------------------------------------- |
+| `npm.cmd run typecheck` |    `0`    | TypeScript compile check        | 0 errors (`tsc --noEmit`)               |
+| `npm.cmd test`          |    `0`    | Vitest Unit & Integration suite | 87/87 passing tests across 11 files     |
+| `npm.cmd run lint`      |    `0`    | ESLint static analysis          | 0 errors (6 UI barrel warnings)         |
+| `npm.cmd run test:e2e`  |    `0`    | Playwright E2E browser tests    | 8/8 passing across Desktop & Mobile     |
+| `npm.cmd run build`     |    `0`    | Nitro Cloudflare bundle build   | Cloudflare worker bundle built in 2.12s |
 
 ---
 

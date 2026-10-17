@@ -22,16 +22,16 @@ Prior to Phase 5, the constellation and profile features suffered from several l
 
 ## 2. Files Changed and Their Purpose
 
-| File | Change Type | Purpose |
-| :--- | :--- | :--- |
-| `src/services/profiles.ts` | Modified | Added `validateProfileUpdates()`, `MAX_AVATAR_SIZE_BYTES`, `ALLOWED_AVATAR_MIME_TYPES`, image type/size validation on avatar upload, and cascading account deletion. |
-| `src/services/interests.ts` | Modified | Added `validateMinCuratedInterests()` and `toggleInterestType()`; hardened `fetchConstellationGraph()` to guarantee edge endpoints strictly resolve to catalog nodes; added test-user bypass in `saveUserInterests()`. |
-| `src/lib/store.ts` | Modified | Added `profile` and `city` to `DemoState`, `defaults`, and `syncUserSession()`. |
-| `src/components/FloatingNavbar.tsx` | Modified | Rendered user avatar image in desktop navigation bar when profile avatar is present. |
-| `src/routes/constellation.tsx` | Modified | Added Profile Header with avatar display/upload, Profile Settings modal (display name, handle, city, bio $\le 240$ chars, style selector, danger zone account deletion), node type toggle, and 3+ interest removal guard. |
-| `src/test/profile-constellation.test.ts` | Created | Dedicated Phase 5 test suite (15 tests) validating profile update rules, avatar constraints, minimum interest threshold, category clustering geometry, and store sync. |
-| `docs/production/phase-5.md` | Created | This Phase 5 verification report. |
-| `docs/production/PROGRESS.md` | Modified | Master progress tracker updated with Phase 5 marked as **PASS** ✅. |
+| File                                     | Change Type | Purpose                                                                                                                                                                                                                   |
+| :--------------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/services/profiles.ts`               | Modified    | Added `validateProfileUpdates()`, `MAX_AVATAR_SIZE_BYTES`, `ALLOWED_AVATAR_MIME_TYPES`, image type/size validation on avatar upload, and cascading account deletion.                                                      |
+| `src/services/interests.ts`              | Modified    | Added `validateMinCuratedInterests()` and `toggleInterestType()`; hardened `fetchConstellationGraph()` to guarantee edge endpoints strictly resolve to catalog nodes; added test-user bypass in `saveUserInterests()`.    |
+| `src/lib/store.ts`                       | Modified    | Added `profile` and `city` to `DemoState`, `defaults`, and `syncUserSession()`.                                                                                                                                           |
+| `src/components/FloatingNavbar.tsx`      | Modified    | Rendered user avatar image in desktop navigation bar when profile avatar is present.                                                                                                                                      |
+| `src/routes/constellation.tsx`           | Modified    | Added Profile Header with avatar display/upload, Profile Settings modal (display name, handle, city, bio $\le 240$ chars, style selector, danger zone account deletion), node type toggle, and 3+ interest removal guard. |
+| `src/test/profile-constellation.test.ts` | Created     | Dedicated Phase 5 test suite (15 tests) validating profile update rules, avatar constraints, minimum interest threshold, category clustering geometry, and store sync.                                                    |
+| `docs/production/phase-5.md`             | Created     | This Phase 5 verification report.                                                                                                                                                                                         |
+| `docs/production/PROGRESS.md`            | Modified    | Master progress tracker updated with Phase 5 marked as **PASS** ✅.                                                                                                                                                       |
 
 ---
 
@@ -45,7 +45,7 @@ export function validateProfileUpdates(updates: {
   handle?: string | null | undefined;
   bio?: string | null | undefined;
   city?: string | null | undefined;
-}): { valid: boolean; error: string | null }
+}): { valid: boolean; error: string | null };
 ```
 
 - **Display Name**: Required, $1 \le \text{length} \le 60$ characters.
@@ -96,10 +96,10 @@ export function validateProfileUpdates(updates: {
 
 ## 5. Verification Matrix
 
-| Check | Tool / Command | Result |
-| :--- | :--- | :--- |
-| TypeScript Typecheck | `npm.cmd run typecheck` (`tsc --noEmit`) | **PASS** (0 errors) |
-| ESLint Check | `npm.cmd run lint` | **PASS** (0 errors, 7 warnings) |
-| Unit & Integration Tests | `npm.cmd test` | **PASS** (79/79 tests passing across 11 files) |
-| Playwright E2E Tests | `npm.cmd run test:e2e` | **PASS** (8/8 browser tests passing) |
-| Production Build | `npm.cmd run build` | **PASS** (Nitro Cloudflare Module bundle verified) |
+| Check                    | Tool / Command                           | Result                                             |
+| :----------------------- | :--------------------------------------- | :------------------------------------------------- |
+| TypeScript Typecheck     | `npm.cmd run typecheck` (`tsc --noEmit`) | **PASS** (0 errors)                                |
+| ESLint Check             | `npm.cmd run lint`                       | **PASS** (0 errors, 7 warnings)                    |
+| Unit & Integration Tests | `npm.cmd test`                           | **PASS** (79/79 tests passing across 11 files)     |
+| Playwright E2E Tests     | `npm.cmd run test:e2e`                   | **PASS** (8/8 browser tests passing)               |
+| Production Build         | `npm.cmd run build`                      | **PASS** (Nitro Cloudflare Module bundle verified) |

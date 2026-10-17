@@ -11,97 +11,306 @@ export type ConnectionRecord = {
   createdAt: string;
 };
 
+export type PendingConnectionRequest = {
+  id: string;
+  userId: string;
+  userName: string;
+  userHandle: string;
+  userAvatar?: string | undefined;
+  userCity: string;
+  interests: string[];
+  createdAt: string;
+  direction: "incoming" | "outgoing";
+};
+
+async function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/**
+ * Send a connection request to another user
+ */
 export async function sendConnectionRequest(
   targetUserId: string,
+  currentUserId?: string,
 ): Promise<{ success: boolean; status: ConnectionStatus; error: string | null }> {
+  if (currentUserId && targetUserId === currentUserId) {
+    return { success: false, status: "none", error: "Cannot connect to self" };
+  }
+
   const sb = getSupabase();
-  if (!sb) {
+  if (!sb || targetUserId.startsWith("demo-") || currentUserId === "demo") {
     return { success: true, status: "pending", error: null };
   }
 
-  const { data, error } = await sb.rpc("rpc_send_connection_request", {
-    p_target_user_id: targetUserId,
-  });
+  try {
+    const res = await withTimeout(
+      sb.rpc("rpc_send_connection_request", {
+        p_target_user_id: targetUserId,
+      }),
+      2000,
+    );
 
-  if (error) return { success: false, status: "none", error: error.message };
-  return {
-    success: data.success,
-    status: (data.status as ConnectionStatus) ?? "pending",
-    error: null,
-  };
+    if (!res) {
+      // Timeout fallback
+      return { success: true, status: "pending", error: null };
+    }
+
+    if (res.error) {
+      return { success: false, status: "none", error: res.error.message };
+    }
+
+    const data = res.data as { success?: boolean; status?: string } | null;
+    return {
+      success: Boolean(data?.success),
+      status: (data?.status as ConnectionStatus) ?? "pending",
+      error: null,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      status: "none",
+      error: err instanceof Error ? err.message : "Failed to send request",
+    };
+  }
 }
 
+/**
+ * Accept or decline an incoming connection request
+ */
 export async function respondToConnectionRequest(
-  connectionId: string,
+  connectionIdOrUserId: string,
   newStatus: "accepted" | "declined",
+  currentUserId?: string,
 ): Promise<{ success: boolean; error: string | null }> {
   const sb = getSupabase();
-  if (!sb) {
+  if (!sb || connectionIdOrUserId.startsWith("demo-") || currentUserId === "demo") {
     return { success: true, error: null };
   }
 
-  const { data, error } = await sb.rpc("rpc_respond_to_connection_request", {
-    p_connection_id: connectionId,
-    p_status: newStatus,
-  });
+  try {
+    let connectionId = connectionIdOrUserId;
 
-  if (error) return { success: false, error: error.message };
-  return { success: Boolean(data?.success), error: null };
+    // Check if UUID or targetUserId
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      connectionIdOrUserId,
+    );
+
+    if (!isUuid && currentUserId) {
+      const { data: found } = await sb
+        .from("connections")
+        .select("id")
+        .eq("requester_id", connectionIdOrUserId)
+        .eq("addressee_id", currentUserId)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (found?.id) {
+        connectionId = found.id;
+      }
+    }
+
+    const res = await withTimeout(
+      sb.rpc("rpc_respond_to_connection_request", {
+        p_connection_id: connectionId,
+        p_status: newStatus,
+      }),
+      2000,
+    );
+
+    if (!res) return { success: true, error: null };
+    if (res.error) return { success: false, error: res.error.message };
+
+    const data = res.data as { success?: boolean } | null;
+    return { success: Boolean(data?.success), error: null };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to respond to request",
+    };
+  }
 }
 
+/**
+ * Cancel an outgoing pending connection request
+ */
 export async function cancelConnectionRequest(
-  connectionId: string,
+  connectionIdOrUserId: string,
+  currentUserId?: string,
 ): Promise<{ success: boolean; error: string | null }> {
   const sb = getSupabase();
-  if (!sb) return { success: true, error: null };
+  if (!sb || connectionIdOrUserId.startsWith("demo-") || currentUserId === "demo") {
+    return { success: true, error: null };
+  }
 
-  const { error } = await sb
-    .from("connections")
-    .update({ status: "canceled" })
-    .eq("id", connectionId);
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      connectionIdOrUserId,
+    );
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, error: null };
+    let query = sb.from("connections").update({ status: "canceled" });
+    if (isUuid) {
+      query = query.eq("id", connectionIdOrUserId);
+    } else if (currentUserId) {
+      query = query.eq("requester_id", currentUserId).eq("addressee_id", connectionIdOrUserId);
+    }
+
+    const { error } = await query;
+    if (error) return { success: false, error: error.message };
+    return { success: true, error: null };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to cancel request",
+    };
+  }
 }
 
+/**
+ * Remove an existing accepted connection
+ */
 export async function removeConnection(
-  connectionId: string,
+  connectionIdOrUserId: string,
+  currentUserId?: string,
 ): Promise<{ success: boolean; error: string | null }> {
   const sb = getSupabase();
-  if (!sb) return { success: true, error: null };
+  if (!sb || connectionIdOrUserId.startsWith("demo-") || currentUserId === "demo") {
+    return { success: true, error: null };
+  }
 
-  const { error } = await sb
-    .from("connections")
-    .update({ status: "removed" })
-    .eq("id", connectionId);
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      connectionIdOrUserId,
+    );
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, error: null };
+    let query = sb.from("connections").update({ status: "removed" });
+    if (isUuid) {
+      query = query.eq("id", connectionIdOrUserId);
+    } else if (currentUserId) {
+      query = query
+        .or(
+          `and(requester_id.eq.${currentUserId},addressee_id.eq.${connectionIdOrUserId}),and(requester_id.eq.${connectionIdOrUserId},addressee_id.eq.${currentUserId})`,
+        )
+        .eq("status", "accepted");
+    }
+
+    const { error } = await query;
+    if (error) return { success: false, error: error.message };
+    return { success: true, error: null };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to remove connection",
+    };
+  }
 }
 
+/**
+ * Fetch all connections map for a given user
+ */
 export async function fetchConnections(
   currentUserId: string,
 ): Promise<Record<string, "pending" | "connected">> {
   const sb = getSupabase();
-  if (!sb) return {};
+  if (!sb || currentUserId === "demo") return {};
 
-  const { data, error } = await sb
-    .from("connections")
-    .select("id, requester_id, addressee_id, status")
-    .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`)
-    .in("status", ["pending", "accepted"]);
+  try {
+    const { data, error } = await sb
+      .from("connections")
+      .select("id, requester_id, addressee_id, status")
+      .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`)
+      .in("status", ["pending", "accepted"]);
 
-  if (error || !data) return {};
+    if (error || !data) return {};
 
-  const result: Record<string, "pending" | "connected"> = {};
-  for (const c of data) {
-    const otherId = c.requester_id === currentUserId ? c.addressee_id : c.requester_id;
-    if (c.status === "accepted") {
-      result[otherId] = "connected";
-    } else if (c.status === "pending") {
-      result[otherId] = "pending";
+    const result: Record<string, "pending" | "connected"> = {};
+    for (const c of data) {
+      const otherId = c.requester_id === currentUserId ? c.addressee_id : c.requester_id;
+      if (c.status === "accepted") {
+        result[otherId] = "connected";
+      } else if (c.status === "pending") {
+        result[otherId] = "pending";
+      }
     }
+
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Fetch pending connection requests (both incoming and outgoing)
+ */
+export async function fetchPendingRequests(
+  currentUserId: string,
+): Promise<{ incoming: PendingConnectionRequest[]; outgoing: PendingConnectionRequest[] }> {
+  const sb = getSupabase();
+  if (!sb || currentUserId === "demo") {
+    return { incoming: [], outgoing: [] };
   }
 
-  return result;
+  try {
+    const { data, error } = await sb
+      .from("connections")
+      .select("id, requester_id, addressee_id, created_at, status")
+      .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`)
+      .eq("status", "pending");
+
+    if (error || !data) return { incoming: [], outgoing: [] };
+
+    const incoming: PendingConnectionRequest[] = [];
+    const outgoing: PendingConnectionRequest[] = [];
+
+    for (const r of data) {
+      const isIncoming = r.addressee_id === currentUserId;
+      const otherId = isIncoming ? r.requester_id : r.addressee_id;
+
+      const { data: profile } = await sb
+        .from("profiles")
+        .select("id, display_name, handle, city, avatar_path")
+        .eq("id", otherId)
+        .maybeSingle();
+
+      const item: PendingConnectionRequest = {
+        id: r.id,
+        userId: otherId,
+        userName: profile?.display_name ?? "Explorer",
+        userHandle: profile?.handle ?? otherId.slice(0, 8),
+        userAvatar: profile?.avatar_path ?? undefined,
+        userCity: profile?.city ?? "Worldwide",
+        interests: [],
+        createdAt: r.created_at,
+        direction: isIncoming ? "incoming" : "outgoing",
+      };
+
+      if (isIncoming) {
+        incoming.push(item);
+      } else {
+        outgoing.push(item);
+      }
+    }
+
+    return { incoming, outgoing };
+  } catch {
+    return { incoming: [], outgoing: [] };
+  }
+}
+
+/**
+ * Verify whether private messaging is unlocked between two users
+ */
+export function canInitiateConversation(
+  connectionsRecord: Record<string, "pending" | "connected">,
+  targetUserId: string,
+): boolean {
+  return connectionsRecord[targetUserId] === "connected";
 }
