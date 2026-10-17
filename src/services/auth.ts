@@ -65,7 +65,7 @@ export async function signUpUser(data: { name: string; email: string; password: 
   const user: AuthUser = {
     id: sbUser.id,
     email: sbUser.email ?? data.email,
-    displayName: (sbUser.user_metadata?.display_name as string) || data.name.trim(),
+    displayName: (sbUser.user_metadata?.["display_name"] as string) || data.name.trim(),
   };
 
   return { user, error: null };
@@ -97,7 +97,8 @@ export async function signInUser(data: { email: string; password: string }) {
     id: sbUser.id,
     email: sbUser.email ?? data.email,
     displayName:
-      (sbUser.user_metadata?.display_name as string) || (sbUser.email?.split("@")[0] ?? "Friend"),
+      (sbUser.user_metadata?.["display_name"] as string) ||
+      (sbUser.email?.split("@")[0] ?? "Friend"),
   };
 
   return { user, error: null };
@@ -137,6 +138,7 @@ export async function getCurrentAuthUser(): Promise<AuthUser | null> {
   return {
     id: u.id,
     email: u.email ?? "",
-    displayName: (u.user_metadata?.display_name as string) || (u.email?.split("@")[0] ?? "Friend"),
+    displayName:
+      (u.user_metadata?.["display_name"] as string) || (u.email?.split("@")[0] ?? "Friend"),
   };
 }

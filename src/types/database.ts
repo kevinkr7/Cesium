@@ -46,6 +46,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       interests: {
         Row: {
@@ -75,6 +76,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
       user_interests: {
         Row: {
@@ -98,6 +100,7 @@ export type Database = {
           is_niche?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
       interest_relations: {
         Row: {
@@ -118,6 +121,7 @@ export type Database = {
           relation_type?: string;
           weight?: number;
         };
+        Relationships: [];
       };
       connections: {
         Row: {
@@ -144,6 +148,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       conversations: {
         Row: {
@@ -161,6 +166,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       conversation_members: {
         Row: {
@@ -181,6 +187,7 @@ export type Database = {
           last_read_at?: string;
           joined_at?: string;
         };
+        Relationships: [];
       };
       messages: {
         Row: {
@@ -210,6 +217,7 @@ export type Database = {
           edited_at?: string | null;
           deleted_at?: string | null;
         };
+        Relationships: [];
       };
       communities: {
         Row: {
@@ -248,6 +256,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       community_members: {
         Row: {
@@ -268,6 +277,22 @@ export type Database = {
           role?: "owner" | "moderator" | "member";
           joined_at?: string;
         };
+        Relationships: [];
+      };
+      community_interests: {
+        Row: {
+          community_id: string;
+          interest_id: string;
+        };
+        Insert: {
+          community_id: string;
+          interest_id: string;
+        };
+        Update: {
+          community_id?: string;
+          interest_id?: string;
+        };
+        Relationships: [];
       };
       community_posts: {
         Row: {
@@ -297,6 +322,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       community_replies: {
         Row: {
@@ -320,6 +346,7 @@ export type Database = {
           text?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       blocked_users: {
         Row: {
@@ -337,6 +364,7 @@ export type Database = {
           blocked_id?: string;
           created_at?: string;
         };
+        Relationships: [];
       };
       user_reports: {
         Row: {
@@ -366,6 +394,7 @@ export type Database = {
           status?: "pending" | "reviewed" | "dismissed";
           created_at?: string;
         };
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -395,8 +424,10 @@ export type Database = {
           read?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
     Functions: {
       rpc_send_connection_request: {
         Args: { p_target_user_id: string };
@@ -432,5 +463,7 @@ export type Database = {
         }[];
       };
     };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 };

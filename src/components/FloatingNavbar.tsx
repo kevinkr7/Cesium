@@ -116,6 +116,7 @@ export function FloatingNavbar() {
             <>
               <Link
                 to="/messages"
+                search={{ c: undefined }}
                 onMouseEnter={() => setHover("/messages")}
                 className={`group relative flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-all ${
                   path.startsWith("/messages")

@@ -49,6 +49,7 @@ This contract governs all engineering work performed on the **Cesium** codebase 
 ## 4. Quality Gate Standards
 
 Every phase must satisfy:
+
 - `npm run lint`: Zero ESLint errors.
 - `npm run typecheck` (`tsc --noEmit`): Zero TypeScript compilation errors.
 - `npm test`: Passing unit and integration tests.

@@ -73,8 +73,8 @@ export async function fetchCommunitiesList(): Promise<Community[]> {
 export async function createNewCommunity(data: {
   name: string;
   description: string;
-  topics?: string[];
-  userId?: string;
+  topics?: string[] | undefined;
+  userId?: string | undefined;
 }): Promise<{ success: boolean; community?: Community; error: string | null }> {
   const sb = getSupabase();
   const slug = data.name
@@ -106,7 +106,7 @@ export async function createNewCommunity(data: {
       name: data.name.trim(),
       line: data.description.trim().slice(0, 70),
       description: data.description.trim(),
-      creator_id: data.userId,
+      creator_id: data.userId ?? null,
       visibility: "public",
     })
     .select()

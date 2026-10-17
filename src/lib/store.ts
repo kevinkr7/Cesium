@@ -4,7 +4,12 @@ import { getSupabase } from "./supabase/client";
 
 export type Msg = { id: string; from: "me" | "them"; text: string; at: number };
 export type DemoState = {
-  session: { id?: string; name: string; email: string; demo?: boolean } | null;
+  session: {
+    id?: string | undefined;
+    name: string;
+    email: string;
+    demo?: boolean | undefined;
+  } | null;
   interests: string[];
   niche: string[];
   bio: string;
@@ -76,7 +81,7 @@ function load() {
           session: {
             id: session.user.id,
             name:
-              (session.user.user_metadata?.display_name as string) ||
+              (session.user.user_metadata?.["display_name"] as string) ||
               (session.user.email?.split("@")[0] ?? "Visitor"),
             email: session.user.email ?? "",
             demo: false,
@@ -91,7 +96,7 @@ function load() {
           session: {
             id: session.user.id,
             name:
-              (session.user.user_metadata?.display_name as string) ||
+              (session.user.user_metadata?.["display_name"] as string) ||
               (session.user.email?.split("@")[0] ?? "Visitor"),
             email: session.user.email ?? "",
             demo: false,

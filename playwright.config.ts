@@ -11,11 +11,7 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: [
-    ["html", { outputFolder: "playwright-report", open: "never" }],
-    ["list"],
-    ["github"],
-  ],
+  reporter: [["html", { outputFolder: "playwright-report", open: "never" }], ["list"], ["github"]],
   use: {
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:3000",
     trace: "on-first-retry",

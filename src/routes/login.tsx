@@ -26,11 +26,11 @@ export const Route = createFileRoute("/login")({
 });
 
 type Errs = {
-  name?: string;
-  email?: string;
-  password?: string;
-  confirm?: string;
-  general?: string;
+  name?: string | undefined;
+  email?: string | undefined;
+  password?: string | undefined;
+  confirm?: string | undefined;
+  general?: string | undefined;
 };
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 
