@@ -6,15 +6,15 @@ export type DiscoveryCandidate = {
   name: string;
   handle: string;
   city: string;
-  photo?: string;
+  photo?: string | undefined;
   bio: string;
   interests: string[];
   sharedInterests: string[];
   matchScore: number;
   why: string;
   connectionStatus: "none" | "pending" | "connected";
-  recent?: boolean;
-  featured?: boolean;
+  recent?: boolean | undefined;
+  featured?: boolean | undefined;
 };
 
 export function getCategoryOf(interestName: string): string {
@@ -132,7 +132,8 @@ export async function fetchDiscoveryPeople(
         p.interests,
         myInterests.slice(0, 3),
       );
-      const connStatus = connectionsRecord[p.id] ?? "none";
+      const connStatus: "none" | "pending" | "connected" =
+        (connectionsRecord[p.id] as "none" | "pending" | "connected") ?? "none";
       const why =
         filter === "Uncommon connections" && sharedList.length <= 1
           ? computeUncommonGroundExplanation(myInterests, p.interests)

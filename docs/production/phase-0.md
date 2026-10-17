@@ -24,18 +24,18 @@ At the start of Phase 0, the repository presented an early implementation with h
 
 ## 2. Files Changed and Their Purpose
 
-| File | Change Type | Purpose |
-| :--- | :--- | :--- |
-| `.gitignore` | Modified | Added comprehensive rules protecting `.env`, `.env.*` (while keeping `!.env.example`), `desktop.ini`, test coverage, build caches, and Supabase local artifacts. |
-| `package.json` | Modified | Standardized scripts: added `typecheck`, `test:unit`, `test:integration`, `test:e2e`, `test:all`. Installed `@playwright/test`. |
-| `playwright.config.ts` | Created | Configured Playwright with Chromium (Desktop Chrome and Pixel 7 viewports), automatic webServer hook (`npx vite dev --port 3000`), and GitHub reporting. |
-| `e2e/baseline.spec.ts` | Created | End-to-end baseline test suite covering homepage, authentication, responsive navigation, route guard redirects, and 404 boundaries. |
-| `src/test/fixtures/index.ts` | Created | Deterministic test fixtures for mock users, interests, discovery candidates, and communities. |
-| `src/test/helpers/supabase-mock.ts` | Created | Isolated mock helper for unit testing Supabase client interactions without network dependencies. |
-| `docs/production/AGENT_CONTRACT.md` | Created | Codified engineering contract and governance rules for the Cesium project. |
-| `docs/production/PROGRESS.md` | Created | Master phase checklist and roadmap tracker. |
-| `docs/production/BASELINE.md` | Created | In-depth architectural audit, integration inventory, real vs mock analysis, and technical debt log. |
-| `docs/production/phase-0.md` | Created | This Phase 0 verification report. |
+| File                                | Change Type | Purpose                                                                                                                                                          |
+| :---------------------------------- | :---------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.gitignore`                        | Modified    | Added comprehensive rules protecting `.env`, `.env.*` (while keeping `!.env.example`), `desktop.ini`, test coverage, build caches, and Supabase local artifacts. |
+| `package.json`                      | Modified    | Standardized scripts: added `typecheck`, `test:unit`, `test:integration`, `test:e2e`, `test:all`. Installed `@playwright/test`.                                  |
+| `playwright.config.ts`              | Created     | Configured Playwright with Chromium (Desktop Chrome and Pixel 7 viewports), automatic webServer hook (`npx vite dev --port 3000`), and GitHub reporting.         |
+| `e2e/baseline.spec.ts`              | Created     | End-to-end baseline test suite covering homepage, authentication, responsive navigation, route guard redirects, and 404 boundaries.                              |
+| `src/test/fixtures/index.ts`        | Created     | Deterministic test fixtures for mock users, interests, discovery candidates, and communities.                                                                    |
+| `src/test/helpers/supabase-mock.ts` | Created     | Isolated mock helper for unit testing Supabase client interactions without network dependencies.                                                                 |
+| `docs/production/AGENT_CONTRACT.md` | Created     | Codified engineering contract and governance rules for the Cesium project.                                                                                       |
+| `docs/production/PROGRESS.md`       | Created     | Master phase checklist and roadmap tracker.                                                                                                                      |
+| `docs/production/BASELINE.md`       | Created     | In-depth architectural audit, integration inventory, real vs mock analysis, and technical debt log.                                                              |
+| `docs/production/phase-0.md`        | Created     | This Phase 0 verification report.                                                                                                                                |
 
 ---
 
@@ -43,6 +43,7 @@ At the start of Phase 0, the repository presented an early implementation with h
 
 **None in Phase 0** (Baseline inspection phase).
 Existing migrations in `supabase/migrations/` were audited:
+
 - `20261015000001_initial_schema.sql` (16 tables, 16 RLS policies, 4 transactional RPC functions).
 - `20261015000002_seed_data.sql` (Curated interests and constellation graph relations).
 
@@ -63,18 +64,18 @@ Existing migrations in `supabase/migrations/` were audited:
 
 ## 5. Commands Executed and Pass/Fail Results
 
-| Command | Exit Code | Result | Notes |
-| :--- | :---: | :---: | :--- |
-| `npm.cmd -v` | 0 | PASS | npm v10.9.2 verified. |
-| `npm.cmd test` (`vitest run`) | 0 | **PASS** | 6 test files passed, 19 tests passed (9.77s / 34.32s). |
-| `npm.cmd run build` (`vite build`) | 0 | **PASS** | Client bundle and Nitro Cloudflare Worker bundle created in `.output/`. |
-| `cmd.exe /c "npm install -D @playwright/test"` | 0 | **PASS** | 23 packages added, verified cleanly via npm registry. |
-| `cmd.exe /c "npx playwright install chromium"` | 0 | **PASS** | Downloaded Chromium 156.0.8078.4, FFmpeg, Headless Shell, and Winldd. |
-| `cmd.exe /c "npx playwright test"` | 0 | **PASS** | 8 passed across Desktop Chrome & Pixel 7 mobile (58.5s). |
-| `cmd.exe /c "npm run test:e2e"` | 0 | **PASS** | Full npm script pipeline execution verified (8 passed). |
-| `cmd.exe /c "npm run lint"` | 1 | **FAIL** | 4 errors (Prettier in `HeroConstellation.tsx`), 7 warnings. Baseline debt. |
-| `cmd.exe /c "npx tsc --noEmit"` | 1 | **FAIL** | 69 TypeScript compilation errors. Baseline debt. |
-| `browser_subagent` UI Audit | 0 | **PASS** | Navigated all 7 primary routes on `http://localhost:3000` and captured 8 screenshots. |
+| Command                                        | Exit Code |  Result  | Notes                                                                                 |
+| :--------------------------------------------- | :-------: | :------: | :------------------------------------------------------------------------------------ |
+| `npm.cmd -v`                                   |     0     |   PASS   | npm v10.9.2 verified.                                                                 |
+| `npm.cmd test` (`vitest run`)                  |     0     | **PASS** | 6 test files passed, 19 tests passed (9.77s / 34.32s).                                |
+| `npm.cmd run build` (`vite build`)             |     0     | **PASS** | Client bundle and Nitro Cloudflare Worker bundle created in `.output/`.               |
+| `cmd.exe /c "npm install -D @playwright/test"` |     0     | **PASS** | 23 packages added, verified cleanly via npm registry.                                 |
+| `cmd.exe /c "npx playwright install chromium"` |     0     | **PASS** | Downloaded Chromium 156.0.8078.4, FFmpeg, Headless Shell, and Winldd.                 |
+| `cmd.exe /c "npx playwright test"`             |     0     | **PASS** | 8 passed across Desktop Chrome & Pixel 7 mobile (58.5s).                              |
+| `cmd.exe /c "npm run test:e2e"`                |     0     | **PASS** | Full npm script pipeline execution verified (8 passed).                               |
+| `cmd.exe /c "npm run lint"`                    |     1     | **FAIL** | 4 errors (Prettier in `HeroConstellation.tsx`), 7 warnings. Baseline debt.            |
+| `cmd.exe /c "npx tsc --noEmit"`                |     1     | **FAIL** | 69 TypeScript compilation errors. Baseline debt.                                      |
+| `browser_subagent` UI Audit                    |     0     | **PASS** | Navigated all 7 primary routes on `http://localhost:3000` and captured 8 screenshots. |
 
 ---
 
@@ -120,6 +121,7 @@ All visual baseline evidence has been saved to the artifacts directory and confi
 
 **Rationale**:
 All acceptance gate criteria for Phase 0 have been met:
+
 - Architecture, runtime, and lockfiles audited and standardized.
 - Full integration and mock inventory documented.
 - 16 database tables and RLS policies audited.
@@ -130,4 +132,3 @@ All acceptance gate criteria for Phase 0 have been met:
 - Baseline technical debt documented with exact reproduction commands and error logs.
 
 Phase 0 is complete. Proceed to Phase 1 upon user review.
-

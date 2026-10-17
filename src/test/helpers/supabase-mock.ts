@@ -27,12 +27,16 @@ export function createMockSupabaseClient() {
       signUp: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
       signInWithPassword: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
       signOut: vi.fn().mockResolvedValue({ error: null }),
-      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      onAuthStateChange: vi
+        .fn()
+        .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
     storage: {
       from: vi.fn().mockReturnValue({
         upload: vi.fn().mockResolvedValue({ data: { path: "avatars/test.jpg" }, error: null }),
-        getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: "https://example.com/avatar.jpg" } }),
+        getPublicUrl: vi
+          .fn()
+          .mockReturnValue({ data: { publicUrl: "https://example.com/avatar.jpg" } }),
       }),
     },
   };

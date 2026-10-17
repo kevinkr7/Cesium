@@ -190,13 +190,13 @@ const links: [number, number, boolean?][] = [
   [4, 7], // Generative art ↔ Solarpunk
 
   // Cluster 3 (Atmosphere & Cinema)
-  [8, 9],   // Ambient music ↔ Liminal spaces
-  [9, 10],  // Liminal spaces ↔ Indie cinema
-  [9, 11],  // Liminal spaces ↔ 01:43 AM ideas
+  [8, 9], // Ambient music ↔ Liminal spaces
+  [9, 10], // Liminal spaces ↔ Indie cinema
+  [9, 11], // Liminal spaces ↔ 01:43 AM ideas
   [10, 12], // Indie cinema ↔ Slow tech
 
   // Subtle Inter-Cluster Bridges (dim by default, lights up when activated)
-  [2, 8, true],  // Tape loops ↔ Ambient music (Audio bridge, true = bridge)
+  [2, 8, true], // Tape loops ↔ Ambient music (Audio bridge, true = bridge)
   [7, 12, true], // Solarpunk ↔ Slow tech (Philosophy bridge)
 ];
 
