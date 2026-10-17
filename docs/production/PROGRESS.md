@@ -2,8 +2,8 @@
 
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.
 
-**Last Updated**: 2026-10-16  
-**Current Phase**: Phase 0 — Baseline & Quality Gates  
+**Last Updated**: 2026-10-17  
+**Current Phase**: Phase 0 — Baseline & Quality Gates (COMPLETED)  
 **Active Branch**: `phase-0-baseline`
 
 ---
@@ -12,7 +12,7 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 
 | Phase | Title | Status | Primary Artifact | Quality Gate |
 | :--- | :--- | :---: | :--- | :---: |
-| **Phase 0** | **Baseline & Quality Gates** | **BLOCKED** ⚠️ | `docs/production/phase-0.md` | Audit complete; external npm install blocked |
+| **Phase 0** | **Baseline & Quality Gates** | **PASS** ✅ | `docs/production/phase-0.md` | Quality gates operational; 8/8 E2E & 19/19 Unit tests passing |
 | **Phase 1** | Environment & Supabase Configuration | PENDING | `docs/production/phase-1.md` | — |
 | **Phase 2** | Schema Migrations & Constraints | PENDING | `docs/production/phase-2.md` | — |
 | **Phase 3** | Seed Data & Graph Relations | PENDING | `docs/production/phase-3.md` | — |
@@ -39,8 +39,9 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Map end-to-end integration inventory (UI element → handler → service → database operation).
 - [x] Configure deterministic package scripts (`typecheck`, `test:unit`, `test:integration`, `test:e2e`, `test:all`).
 - [x] Configure Playwright configuration (`playwright.config.ts`) and baseline spec (`e2e/baseline.spec.ts`).
+- [x] Install `@playwright/test` and Chromium browser binaries via npm.
+- [x] Execute Playwright E2E test suite (8/8 tests passed across Desktop and Mobile viewports).
 - [x] Create test fixtures (`src/test/fixtures/index.ts`) and isolated test helper (`src/test/helpers/supabase-mock.ts`).
 - [x] Capture baseline visual evidence across homepage, login, register, onboarding, discover, messages, communities, and constellation routes using browser agent.
 - [x] Verify unconfigured Supabase environment handling.
 - [x] Document technical debt (TypeScript strictness errors, ESLint Prettier warnings).
-- [x] Record external npm network dependency blocker (`ECONNRESET` downloading `@playwright/test` from `registry.npmjs.org`).

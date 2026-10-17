@@ -9,9 +9,11 @@ test.describe("Cesium Baseline Quality Gates", () => {
     const heading = page.locator("h1");
     await expect(heading).toBeVisible();
 
-    // Verify navbar is present
-    const nav = page.locator("nav, [role='navigation']");
-    await expect(nav.first()).toBeVisible();
+    // Verify navigation is present (either desktop navbar or mobile menu button is visible)
+    const nav = page
+      .locator("nav[aria-label='Primary'], header button[aria-label='Open menu']")
+      .locator("visible=true");
+    await expect(nav).toBeVisible();
   });
 
   test("Authentication page displays login and register options", async ({ page }) => {

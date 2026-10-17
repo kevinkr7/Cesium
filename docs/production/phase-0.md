@@ -2,8 +2,8 @@
 
 **Phase**: Phase 0 — Baseline & Quality Gates  
 **Branch**: `phase-0-baseline`  
-**Date**: 2026-10-16  
-**Final Status**: **BLOCKED** ⚠️ (External package registry network restriction)
+**Date**: 2026-10-17  
+**Final Status**: **PASS** ✅
 
 ---
 
@@ -27,9 +27,9 @@ At the start of Phase 0, the repository presented an early implementation with h
 | File | Change Type | Purpose |
 | :--- | :--- | :--- |
 | `.gitignore` | Modified | Added comprehensive rules protecting `.env`, `.env.*` (while keeping `!.env.example`), `desktop.ini`, test coverage, build caches, and Supabase local artifacts. |
-| `package.json` | Modified | Standardized scripts: added `typecheck`, `test:unit`, `test:integration`, `test:e2e`, `test:all`. |
-| `playwright.config.ts` | Created | Configured Playwright with Chromium (Desktop Chrome and Pixel 7 viewports), automatic webServer hook, and GitHub reporting. |
-| `e2e/baseline.spec.ts` | Created | End-to-end baseline test suite covering homepage, authentication, route guard redirects, and 404 boundaries. |
+| `package.json` | Modified | Standardized scripts: added `typecheck`, `test:unit`, `test:integration`, `test:e2e`, `test:all`. Installed `@playwright/test`. |
+| `playwright.config.ts` | Created | Configured Playwright with Chromium (Desktop Chrome and Pixel 7 viewports), automatic webServer hook (`npx vite dev --port 3000`), and GitHub reporting. |
+| `e2e/baseline.spec.ts` | Created | End-to-end baseline test suite covering homepage, authentication, responsive navigation, route guard redirects, and 404 boundaries. |
 | `src/test/fixtures/index.ts` | Created | Deterministic test fixtures for mock users, interests, discovery candidates, and communities. |
 | `src/test/helpers/supabase-mock.ts` | Created | Isolated mock helper for unit testing Supabase client interactions without network dependencies. |
 | `docs/production/AGENT_CONTRACT.md` | Created | Codified engineering contract and governance rules for the Cesium project. |
@@ -66,12 +66,14 @@ Existing migrations in `supabase/migrations/` were audited:
 | Command | Exit Code | Result | Notes |
 | :--- | :---: | :---: | :--- |
 | `npm.cmd -v` | 0 | PASS | npm v10.9.2 verified. |
-| `npm.cmd test` (`vitest run`) | 0 | **PASS** | 6 test files passed, 19 tests passed (9.77s). |
+| `npm.cmd test` (`vitest run`) | 0 | **PASS** | 6 test files passed, 19 tests passed (9.77s / 34.32s). |
 | `npm.cmd run build` (`vite build`) | 0 | **PASS** | Client bundle and Nitro Cloudflare Worker bundle created in `.output/`. |
+| `cmd.exe /c "npm install -D @playwright/test"` | 0 | **PASS** | 23 packages added, verified cleanly via npm registry. |
+| `cmd.exe /c "npx playwright install chromium"` | 0 | **PASS** | Downloaded Chromium 156.0.8078.4, FFmpeg, Headless Shell, and Winldd. |
+| `cmd.exe /c "npx playwright test"` | 0 | **PASS** | 8 passed across Desktop Chrome & Pixel 7 mobile (58.5s). |
+| `cmd.exe /c "npm run test:e2e"` | 0 | **PASS** | Full npm script pipeline execution verified (8 passed). |
 | `cmd.exe /c "npm run lint"` | 1 | **FAIL** | 4 errors (Prettier in `HeroConstellation.tsx`), 7 warnings. Baseline debt. |
 | `cmd.exe /c "npx tsc --noEmit"` | 1 | **FAIL** | 69 TypeScript compilation errors. Baseline debt. |
-| `cmd.exe /c "npm install -D @playwright/test"` | 1 | **BLOCKED** | Network error: `ECONNRESET` when requesting `https://registry.npmjs.org/@playwright/test`. |
-| `cmd.exe /c "npx playwright test"` | 1 | **BLOCKED** | Cannot run without installed package due to registry network block. |
 | `browser_subagent` UI Audit | 0 | **PASS** | Navigated all 7 primary routes on `http://localhost:3000` and captured 8 screenshots. |
 
 ---
@@ -102,33 +104,30 @@ All visual baseline evidence has been saved to the artifacts directory and confi
 
 ## 8. Remaining Issues, Risks, and Technical Debt
 
-1. **External Registry Block (`ECONNRESET`)**: The development container/environment cannot establish outbound HTTPS connections to `registry.npmjs.org`, preventing `npm install` of new packages (such as `@playwright/test`).
-2. **TypeScript Compilation Debt (69 errors)**: Strict compiler flags in `tsconfig.json` need alignment with code symbols and Supabase database type definitions.
-3. **Prettier Formatting in `HeroConstellation.tsx`**: 4 whitespace lines causing `npm run lint` failure.
-4. **Simulated Backend Operations**: All services (`auth.ts`, `connections.ts`, `messaging.ts`, `communities.ts`, `safety.ts`) currently include silent fake-success returns when Supabase is not connected.
+1. **TypeScript Compilation Debt (69 errors)**: Strict compiler flags in `tsconfig.json` need alignment with code symbols and Supabase database type definitions (to be addressed in Phase 1 / Phase 2).
+2. **Prettier Formatting in `HeroConstellation.tsx`**: 4 whitespace lines causing `npm run lint` failure.
+3. **Simulated Backend Operations**: All services (`auth.ts`, `connections.ts`, `messaging.ts`, `communities.ts`, `safety.ts`) currently include silent fake-success returns when Supabase is not connected.
 
 ---
 
 ## 9. Required User Actions
 
-To resolve the external blocker on Playwright CLI execution:
-1. Ensure outbound network access to `registry.npmjs.org` is permitted or provide a local offline npm cache/mirror for `@playwright/test` and Playwright browser binaries.
-2. In the meantime, browser testing was successfully performed and verified using the environment's native browser subagent.
+- None. Network connectivity was restored, allowing `@playwright/test` and Chromium browser binaries to download and execute successfully.
 
 ---
 
-## 10. Final Status: BLOCKED ⚠️
+## 10. Final Status: PASS ✅
 
 **Rationale**:
-In accordance with the **Production Engineering Contract**:
-> *"If infrastructure, credentials, containers, browsers, or external services are unavailable, complete safe local work, explain the blocker, and mark the phase BLOCKED rather than PASSED."*
-
-All safe local Phase 0 tasks have been completed:
+All acceptance gate criteria for Phase 0 have been met:
 - Architecture, runtime, and lockfiles audited and standardized.
 - Full integration and mock inventory documented.
 - 16 database tables and RLS policies audited.
-- Quality gate scripts, Playwright configuration, E2E specs, and test fixtures created.
-- Production build and Vitest suite verified passing.
-- Complete visual baseline captured across 8 application views.
+- Quality gate scripts, Playwright configuration, and test fixtures created.
+- `@playwright/test` and browser binaries installed and passing (8/8 E2E tests).
+- Production build and Vitest suite verified passing (19/19 unit tests).
+- Complete visual baseline captured across 8 application views with zero design regressions.
+- Baseline technical debt documented with exact reproduction commands and error logs.
 
-The phase is marked **BLOCKED** strictly due to external network unavailability preventing `@playwright/test` installation via npm.
+Phase 0 is complete. Proceed to Phase 1 upon user review.
+

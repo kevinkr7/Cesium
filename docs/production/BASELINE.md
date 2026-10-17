@@ -139,8 +139,17 @@ All 16 tables explicitly enforce `ALTER TABLE <table_name> ENABLE ROW LEVEL SECU
 
 ### 5. Playwright Browser E2E Testing
 - **Configuration Established**: `playwright.config.ts` and `e2e/baseline.spec.ts`.
-- **Execution Status**: **BLOCKED** on npm package installation due to network restriction (`ECONNRESET` connecting to `https://registry.npmjs.org/@playwright/test`).
-- **Alternative Verification**: Local dev server executed at `http://localhost:3000`. Full browser walkthrough performed via browser subagent. All 7 primary routes verified.
+- **Execution Status**: **PASS (Exit Code 0)** — 8 tests passed across 2 projects (Desktop Chrome and Mobile Chrome) in ~58.5s.
+- **Test Results**:
+  - `[Desktop Chrome] Homepage loads with hero constellation and title`: PASS
+  - `[Desktop Chrome] Authentication page displays login and register options`: PASS
+  - `[Desktop Chrome] Protected routes redirect unauthenticated users to login`: PASS
+  - `[Desktop Chrome] 404 Error page is rendered for unknown routes`: PASS
+  - `[Mobile Chrome] Homepage loads with hero constellation and title`: PASS
+  - `[Mobile Chrome] Authentication page displays login and register options`: PASS
+  - `[Mobile Chrome] Protected routes redirect unauthenticated users to login`: PASS
+  - `[Mobile Chrome] 404 Error page is rendered for unknown routes`: PASS
+- **Visual Verification**: 8 baseline screenshots captured and confirmed across public and authenticated states.
 
 ---
 
