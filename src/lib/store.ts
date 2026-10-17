@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { Community } from "./data";
 import { getSupabase } from "./supabase/client";
+import type { Profile } from "@/services/profiles";
 
 export type Msg = { id: string; from: "me" | "them"; text: string; at: number };
 export type DemoState = {
@@ -10,6 +11,8 @@ export type DemoState = {
     email: string;
     demo?: boolean | undefined;
   } | null;
+  profile?: Profile | null | undefined;
+  city?: string | undefined;
   interests: string[];
   niche: string[];
   bio: string;
@@ -25,6 +28,8 @@ export type DemoState = {
 const KEY = "cesium-demo-v1";
 const defaults: DemoState = {
   session: null,
+  profile: null,
+  city: "Worldwide",
   interests: ["Creative coding", "Astronomy", "Ambient music", "Film photography", "Indie cinema"],
   niche: ["Fonts on old signage"],
   bio: "Collects small strange ideas and occasionally finishes one.",
@@ -82,6 +87,8 @@ async function syncUserSession(userId: string, defaultName: string, email: strin
       email: email,
       demo: false,
     },
+    profile,
+    city: profile?.city ?? prev.city ?? "Worldwide",
     onboarded: profile ? profile.onboarding_completed : prev.onboarded,
     bio: profile?.bio ?? prev.bio,
     topics: profile?.topics ?? prev.topics,

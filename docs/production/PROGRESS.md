@@ -1,10 +1,8 @@
 # CESIUM — PRODUCTION ROADMAP & PROGRESS TRACKER
 
-Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.
-
-**Last Updated**: 2026-10-17  
-**Current Phase**: Phase 4 — Authentication & Onboarding Flow (COMPLETED)  
-**Active Branch**: `phase-4-authentication-onboarding`
+Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-17  
+**Current Phase**: Phase 5 — Profile & Constellation State (COMPLETED)  
+**Active Branch**: `phase-5-profile-constellation`
 
 ---
 
@@ -16,8 +14,8 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | **Phase 1**  | **Environment & Supabase Configuration**  | **PASS** ✅ | `docs/production/phase-1.md`  | Zod env validation active; typesafe Supabase client; 0 tsc errors (down from 69); 0 lint errors; 33/33 Unit & 8/8 E2E pass |
 | **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  |         3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass         |
 | **Phase 3**  | **Seed Data & Graph Relations**           | **PASS** ✅ | `docs/production/phase-3.md`  |    4 versioned migrations; 29 catalog interests; cross-domain bridges; symmetric traversal; 52/52 Vitest & 8/8 E2E pass    |
-| **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |    5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass    |
-| **Phase 5**  | Profile & Constellation State             |   PENDING   | `docs/production/phase-5.md`  |                                                             —                                                              |
+| **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |    5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass     |
+| **Phase 5**  | **Profile & Constellation State**         | **PASS** ✅ | `docs/production/phase-5.md`  |    Profile settings modal; avatar upload; 3+ curated interest guard; node type toggling; 79/79 Vitest & 8/8 E2E pass     |               |
 | **Phase 6**  | Deterministic Matching Engine             |   PENDING   | `docs/production/phase-6.md`  |                                                             —                                                              |
 | **Phase 7**  | Uncommon Ground Discovery                 |   PENDING   | `docs/production/phase-7.md`  |                                                             —                                                              |
 | **Phase 8**  | Connections & Relationship Lifecycle      |   PENDING   | `docs/production/phase-8.md`  |                                                             —                                                              |
@@ -128,3 +126,24 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Verify zero ESLint errors (`eslint .` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
 - [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 5 Checklist
+
+- [x] Implement robust profile update validations (`validateProfileUpdates()`) enforcing display name, handle format, city, and 240-char bio limits.
+- [x] Enforce avatar image upload constraints (`MAX_AVATAR_SIZE_BYTES` = 5MB, MIME types: JPEG/PNG/WebP, sanitized storage paths).
+- [x] Implement minimum curated interest constraint guard (`validateMinCuratedInterests()`) enforcing $\ge 3$ curated anchors.
+- [x] Implement constellation node type toggle (`toggleInterestType()`) allowing promoting niche obsessions to curated anchors and vice-versa.
+- [x] Harden `fetchConstellationGraph()` to guarantee edge endpoints strictly resolve to catalog nodes.
+- [x] Synchronize remote profile and city into local `DemoState` and `syncUserSession()`.
+- [x] Display user avatar in `FloatingNavbar` navigation component.
+- [x] Build interactive Profile Settings modal in `src/routes/constellation.tsx` with avatar upload, identity parameters, and account deletion.
+- [x] Enhance constellation canvas with node role toggling, removal guard, and live category clustering.
+- [x] Create dedicated Phase 5 test suite in `src/test/profile-constellation.test.ts` (15 tests).
+- [x] Verify complete test suite execution (79/79 Vitest unit and integration tests passing across 11 files).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`eslint .` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+

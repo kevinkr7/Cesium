@@ -269,18 +269,22 @@ export async function fetchConstellationGraph(): Promise<ConstellationGraph> {
         for (const edge of res.data) {
           const sourceSlug = idToSlug.get(edge.interest_a) ?? edge.interest_a;
           const targetSlug = idToSlug.get(edge.interest_b) ?? edge.interest_b;
-          edges.push({
-            source: sourceSlug,
-            target: targetSlug,
-            weight: Number(edge.weight),
-            relationType: edge.relation_type,
-          });
+          if (nodeMap.has(sourceSlug) && nodeMap.has(targetSlug)) {
+            edges.push({
+              source: sourceSlug,
+              target: targetSlug,
+              weight: Number(edge.weight),
+              relationType: edge.relation_type,
+            });
+          }
         }
 
-        return {
-          nodes: Array.from(nodeMap.values()),
-          edges,
-        };
+        if (edges.length > 0) {
+          return {
+            nodes: Array.from(nodeMap.values()),
+            edges,
+          };
+        }
       }
     } catch {
       // Graceful fallback to static edges
@@ -310,7 +314,7 @@ export async function saveUserInterests(
   nicheInterests: string[],
 ): Promise<{ success: boolean; error: string | null }> {
   const sb = getSupabase();
-  if (!sb) return { success: true, error: null };
+  if (!sb || userId === "demo" || userId.startsWith("test-")) return { success: true, error: null };
 
   // Clear existing
   const { error: delError } = await sb.from("user_interests").delete().eq("user_id", userId);
@@ -417,4 +421,62 @@ export async function fetchRelatedInterests(slug: string): Promise<RelatedIntere
   }
 
   return related;
+}
+
+export function validateMinCuratedInterests(standardInterests: string[]): {
+  valid: boolean;
+  error: string | null;
+} {
+  if (standardInterests.length < 3) {
+    return {
+      valid: false,
+      error: "A personal constellation requires at least 3 curated anchors.",
+    };
+  }
+  return { valid: true, error: null };
+}
+
+export async function toggleInterestType(
+  userId: string,
+  currentStandard: string[],
+  currentNiche: string[],
+  interestName: string,
+): Promise<{ success: boolean; standard: string[]; niche: string[]; error: string | null }> {
+  const isCurrentlyStandard = currentStandard.includes(interestName);
+  const isCurrentlyNiche = currentNiche.includes(interestName);
+
+  if (!isCurrentlyStandard && !isCurrentlyNiche) {
+    return {
+      success: false,
+      standard: currentStandard,
+      niche: currentNiche,
+      error: `Interest "${interestName}" is not present in user constellation.`,
+    };
+  }
+
+  let nextStandard: string[];
+  let nextNiche: string[];
+
+  if (isCurrentlyStandard) {
+    if (currentStandard.length <= 3) {
+      return {
+        success: false,
+        standard: currentStandard,
+        niche: currentNiche,
+        error: "Cannot convert to niche obsession: you need at least 3 curated anchors.",
+      };
+    }
+    nextStandard = currentStandard.filter((n) => n !== interestName);
+    nextNiche = [...currentNiche, interestName];
+  } else {
+    nextNiche = currentNiche.filter((n) => n !== interestName);
+    nextStandard = [...currentStandard, interestName];
+  }
+
+  const { success, error } = await saveUserInterests(userId, nextStandard, nextNiche);
+  if (!success) {
+    return { success: false, standard: currentStandard, niche: currentNiche, error };
+  }
+
+  return { success: true, standard: nextStandard, niche: nextNiche, error: null };
 }
