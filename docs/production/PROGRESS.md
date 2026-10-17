@@ -3,8 +3,8 @@
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.
 
 **Last Updated**: 2026-10-17  
-**Current Phase**: Phase 2 — Schema Migrations & Constraints (COMPLETED)  
-**Active Branch**: `phase-2-schema-constraints`
+**Current Phase**: Phase 3 — Seed Data & Graph Relations (COMPLETED)  
+**Active Branch**: `phase-3-seed-data-graph`
 
 ---
 
@@ -14,8 +14,8 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | :----------- | :---------------------------------------- | :---------: | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------: |
 | **Phase 0**  | **Baseline & Quality Gates**              | **PASS** ✅ | `docs/production/phase-0.md`  |                               Quality gates operational; 8/8 E2E & 19/19 Unit tests passing                                |
 | **Phase 1**  | **Environment & Supabase Configuration**  | **PASS** ✅ | `docs/production/phase-1.md`  | Zod env validation active; typesafe Supabase client; 0 tsc errors (down from 69); 0 lint errors; 33/33 Unit & 8/8 E2E pass |
-| **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  | 3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass                 |
-| **Phase 3**  | Seed Data & Graph Relations               |   PENDING   | `docs/production/phase-3.md`  |                                                             —                                                              |
+| **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  |         3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass         |
+| **Phase 3**  | **Seed Data & Graph Relations**           | **PASS** ✅ | `docs/production/phase-3.md`  |    4 versioned migrations; 29 catalog interests; cross-domain bridges; symmetric traversal; 52/52 Vitest & 8/8 E2E pass    |
 | **Phase 4**  | Authentication & Onboarding Flow          |   PENDING   | `docs/production/phase-4.md`  |                                                             —                                                              |
 | **Phase 5**  | Profile & Constellation State             |   PENDING   | `docs/production/phase-5.md`  |                                                             —                                                              |
 | **Phase 6**  | Deterministic Matching Engine             |   PENDING   | `docs/production/phase-6.md`  |                                                             —                                                              |
@@ -82,5 +82,26 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Add high-frequency composite performance indexes (`idx_connections_status_users`, `idx_community_posts_author`, `idx_community_replies_author`, `idx_messages_conversation_time`).
 - [x] Expand database migrations test suite in `src/test/database-migrations.test.ts` to 8 comprehensive tests.
 - [x] Verify complete test suite execution (37/37 Vitest unit tests passing).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 3 Checklist
+
+- [x] Audit 29 curated seed interests across 7 categories in SQL and application metadata.
+- [x] Normalize interest slug generation across schema and services (`0143-am-ideas`).
+- [x] Identify and catalog cross-disciplinary bridges connecting disparate creative/technical domains.
+- [x] Create additive migration `supabase/migrations/20261017000002_curated_graph_bridges.sql` for discovery bridges.
+- [x] Implement typesafe constellation graph service `fetchConstellationGraph()` with offline and fallback support.
+- [x] Implement symmetric bidirectional graph neighbor traversal `fetchRelatedInterests()`.
+- [x] Audit and verify 5 starter micro-communities (`2am-builders`, `sound-syntax`, `orbit-club`, `frame-by-frame`, `spore-society`).
+- [x] Enforce that starter community topics strictly resolve to valid catalog interests.
+- [x] Verify sample profile attributes (handles, bio character constraints $\le 240$, valid catalog interests).
+- [x] Audit bespoke conversation starters covering all 29 seed interests (`getIcebreakerStarters()`).
+- [x] Create dedicated test suite `src/test/seed-data-graph.test.ts` (15 tests).
+- [x] Verify complete test suite execution (52/52 Vitest unit and integration tests passing).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`eslint .` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
 - [x] Verify clean production build (`npm run build` exits with 0).
