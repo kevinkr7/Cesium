@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getSupabase } from "@/lib/supabase/client";
+import { resetDemo } from "@/lib/store";
 
 export const registerSchema = z
   .object({
@@ -109,6 +110,7 @@ export async function signOutUser() {
   if (sb) {
     await sb.auth.signOut();
   }
+  resetDemo();
 }
 
 export async function resetPasswordForEmail(email: string) {

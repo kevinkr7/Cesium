@@ -13,6 +13,29 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   return data;
 }
 
+export async function isHandleAvailable(handle: string, currentUserId?: string): Promise<boolean> {
+  const cleanHandle = handle.replace(/^@/, "").trim().toLowerCase();
+  if (cleanHandle.length < 2 || cleanHandle.length > 30) return false;
+
+  const sb = getSupabase();
+  if (!sb) return true;
+
+  try {
+    let query = sb.from("profiles").select("id").eq("handle", cleanHandle);
+    if (currentUserId) {
+      query = query.neq("id", currentUserId);
+    }
+    const timeoutPromise = new Promise<{ data: null; error: null }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: null }), 1500),
+    );
+    const result = await Promise.race([query.maybeSingle(), timeoutPromise]);
+    return !result.data;
+  } catch (err) {
+    void err;
+    return true;
+  }
+}
+
 export async function updateProfile(
   userId: string,
   updates: Partial<

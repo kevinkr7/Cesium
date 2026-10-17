@@ -159,16 +159,32 @@ export const CURATED_GRAPH_EDGES: [string, string, number, string, string][] = [
   ],
 ];
 
+async function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
 export async function fetchInterestCatalog(): Promise<Interest[]> {
   const sb = getSupabase();
   if (sb) {
-    const { data, error } = await sb
-      .from("interests")
-      .select("id, slug, name, category, description")
-      .order("name");
+    try {
+      const res = await withTimeout(
+        sb.from("interests").select("id, slug, name, category, description").order("name"),
+        1500,
+      );
 
-    if (!error && data && data.length > 0) {
-      return data;
+      if (res && !res.error && res.data && res.data.length > 0) {
+        return res.data;
+      }
+    } catch {
+      // Graceful fallback to static catalog
     }
   }
 
@@ -201,17 +217,24 @@ export async function fetchAllInterests(): Promise<Record<string, string[]>> {
     return interestCategories;
   }
 
-  const { data, error } = await sb.from("interests").select("name, category").order("name");
-  if (error || !data || data.length === 0) {
+  try {
+    const res = await withTimeout(
+      sb.from("interests").select("name, category").order("name"),
+      1500,
+    );
+    if (!res || res.error || !res.data || res.data.length === 0) {
+      return interestCategories;
+    }
+
+    const grouped: Record<string, string[]> = {};
+    for (const item of res.data) {
+      if (!grouped[item.category]) grouped[item.category] = [];
+      grouped[item.category]!.push(item.name);
+    }
+    return grouped;
+  } catch {
     return interestCategories;
   }
-
-  const grouped: Record<string, string[]> = {};
-  for (const item of data) {
-    if (!grouped[item.category]) grouped[item.category] = [];
-    grouped[item.category]!.push(item.name);
-  }
-  return grouped;
 }
 
 export async function fetchConstellationGraph(): Promise<ConstellationGraph> {
@@ -229,33 +252,38 @@ export async function fetchConstellationGraph(): Promise<ConstellationGraph> {
 
   const sb = getSupabase();
   if (sb) {
-    const { data: edgesData, error } = await sb
-      .from("interest_relations")
-      .select("interest_a, interest_b, weight, relation_type");
+    try {
+      const res = await withTimeout(
+        sb.from("interest_relations").select("interest_a, interest_b, weight, relation_type"),
+        1500,
+      );
 
-    if (!error && edgesData && edgesData.length > 0) {
-      // Map UUIDs back to slugs if catalog has UUIDs
-      const idToSlug = new Map<string, string>();
-      for (const item of catalog) {
-        idToSlug.set(item.id, item.slug);
+      if (res && !res.error && res.data && res.data.length > 0) {
+        // Map UUIDs back to slugs if catalog has UUIDs
+        const idToSlug = new Map<string, string>();
+        for (const item of catalog) {
+          idToSlug.set(item.id, item.slug);
+        }
+
+        const edges: GraphEdge[] = [];
+        for (const edge of res.data) {
+          const sourceSlug = idToSlug.get(edge.interest_a) ?? edge.interest_a;
+          const targetSlug = idToSlug.get(edge.interest_b) ?? edge.interest_b;
+          edges.push({
+            source: sourceSlug,
+            target: targetSlug,
+            weight: Number(edge.weight),
+            relationType: edge.relation_type,
+          });
+        }
+
+        return {
+          nodes: Array.from(nodeMap.values()),
+          edges,
+        };
       }
-
-      const edges: GraphEdge[] = [];
-      for (const edge of edgesData) {
-        const sourceSlug = idToSlug.get(edge.interest_a) ?? edge.interest_a;
-        const targetSlug = idToSlug.get(edge.interest_b) ?? edge.interest_b;
-        edges.push({
-          source: sourceSlug,
-          target: targetSlug,
-          weight: Number(edge.weight),
-          relationType: edge.relation_type,
-        });
-      }
-
-      return {
-        nodes: Array.from(nodeMap.values()),
-        edges,
-      };
+    } catch {
+      // Graceful fallback to static edges
     }
   }
 
