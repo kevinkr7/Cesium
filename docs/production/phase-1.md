@@ -22,25 +22,25 @@ At the start of Phase 1, the repository suffered from severe environment validat
 
 ## 2. Files Changed and Their Purpose
 
-| File | Change Type | Purpose |
-| :--- | :--- | :--- |
-| `src/lib/env.ts` | Created | Defined Zod environment schema (`envSchema`), `validateEnv()`, `getSupabaseConfig()`, `isSupabaseConfigured()`, and `assertSupabaseConfigured()`. Explicitly validates URL formatting, rejects placeholders, and guarantees zero leakage of server secrets. |
-| `src/lib/supabase/client.ts` | Modified | Integrated `env.ts` configuration, eliminated unchecked property accesses, implemented singleton client pattern, and added `checkSupabaseHealth()` connectivity ping. |
-| `src/types/database.ts` | Modified | Updated database schema types with `Relationships: []` on all 16 tables, added `community_interests`, and populated `Views`, `Enums`, and `CompositeTypes` to fully conform to `@supabase/supabase-js` v2 `GenericSchema`. |
-| `.env.example` | Modified | Added clear configuration guides for both Hosted Supabase Projects and Local Supabase CLI, including security reminders. |
-| `src/lib/store.ts` | Modified | Fixed `user_metadata?.['display_name']` index signature access and updated `DemoState['session']` to permit `id?: string \| undefined` and `demo?: boolean \| undefined`. |
-| `src/services/auth.ts` | Modified | Fixed `user_metadata?.['display_name']` index signature access under `noPropertyAccessFromIndexSignature`. |
-| `src/services/communities.ts` | Modified | Fixed `createNewCommunity` parameter types and `creator_id: data.userId ?? null` insert mapping to satisfy `exactOptionalPropertyTypes`. |
-| `src/services/discovery.ts` | Modified | Updated `DiscoveryCandidate` optional fields (`photo`, `recent`, `featured`) to permit `undefined` and strictly typed connection status. |
-| `src/routes/login.tsx` | Modified | Updated `Errs` type to permit `undefined` on optional fields. |
-| `src/components/FloatingNavbar.tsx` | Modified | Added `search={{ c: undefined }}` to `/messages` route link to satisfy TanStack Router's required search params. |
-| `src/components/HeroConstellation.tsx` | Formatted | Cleaned 4 Prettier whitespace lines. |
-| `src/test/helpers/supabase-mock.ts` | Formatted | Cleaned Prettier formatting on mock function chaining. |
-| `playwright.config.ts` | Formatted | Formatted reporter array layout. |
-| `src/test/env-validation.test.ts` | Created | Comprehensive unit test suite covering environment validation, placeholder rejection, invalid URL handling, and secret leakage prevention (10 tests). |
-| `src/test/supabase-configuration.test.ts` | Created | Unit test suite covering client initialization, singleton behavior, and health-check ping with latency measurements (4 tests). |
-| `docs/production/phase-1.md` | Created | This Phase 1 verification report. |
-| `docs/production/PROGRESS.md` | Modified | Updated Phase 1 status to **PASS** ✅. |
+| File                                      | Change Type | Purpose                                                                                                                                                                                                                                                     |
+| :---------------------------------------- | :---------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/env.ts`                          | Created     | Defined Zod environment schema (`envSchema`), `validateEnv()`, `getSupabaseConfig()`, `isSupabaseConfigured()`, and `assertSupabaseConfigured()`. Explicitly validates URL formatting, rejects placeholders, and guarantees zero leakage of server secrets. |
+| `src/lib/supabase/client.ts`              | Modified    | Integrated `env.ts` configuration, eliminated unchecked property accesses, implemented singleton client pattern, and added `checkSupabaseHealth()` connectivity ping.                                                                                       |
+| `src/types/database.ts`                   | Modified    | Updated database schema types with `Relationships: []` on all 16 tables, added `community_interests`, and populated `Views`, `Enums`, and `CompositeTypes` to fully conform to `@supabase/supabase-js` v2 `GenericSchema`.                                  |
+| `.env.example`                            | Modified    | Added clear configuration guides for both Hosted Supabase Projects and Local Supabase CLI, including security reminders.                                                                                                                                    |
+| `src/lib/store.ts`                        | Modified    | Fixed `user_metadata?.['display_name']` index signature access and updated `DemoState['session']` to permit `id?: string \| undefined` and `demo?: boolean \| undefined`.                                                                                   |
+| `src/services/auth.ts`                    | Modified    | Fixed `user_metadata?.['display_name']` index signature access under `noPropertyAccessFromIndexSignature`.                                                                                                                                                  |
+| `src/services/communities.ts`             | Modified    | Fixed `createNewCommunity` parameter types and `creator_id: data.userId ?? null` insert mapping to satisfy `exactOptionalPropertyTypes`.                                                                                                                    |
+| `src/services/discovery.ts`               | Modified    | Updated `DiscoveryCandidate` optional fields (`photo`, `recent`, `featured`) to permit `undefined` and strictly typed connection status.                                                                                                                    |
+| `src/routes/login.tsx`                    | Modified    | Updated `Errs` type to permit `undefined` on optional fields.                                                                                                                                                                                               |
+| `src/components/FloatingNavbar.tsx`       | Modified    | Added `search={{ c: undefined }}` to `/messages` route link to satisfy TanStack Router's required search params.                                                                                                                                            |
+| `src/components/HeroConstellation.tsx`    | Formatted   | Cleaned 4 Prettier whitespace lines.                                                                                                                                                                                                                        |
+| `src/test/helpers/supabase-mock.ts`       | Formatted   | Cleaned Prettier formatting on mock function chaining.                                                                                                                                                                                                      |
+| `playwright.config.ts`                    | Formatted   | Formatted reporter array layout.                                                                                                                                                                                                                            |
+| `src/test/env-validation.test.ts`         | Created     | Comprehensive unit test suite covering environment validation, placeholder rejection, invalid URL handling, and secret leakage prevention (10 tests).                                                                                                       |
+| `src/test/supabase-configuration.test.ts` | Created     | Unit test suite covering client initialization, singleton behavior, and health-check ping with latency measurements (4 tests).                                                                                                                              |
+| `docs/production/phase-1.md`              | Created     | This Phase 1 verification report.                                                                                                                                                                                                                           |
+| `docs/production/PROGRESS.md`             | Modified    | Updated Phase 1 status to **PASS** ✅.                                                                                                                                                                                                                      |
 
 ---
 
@@ -76,19 +76,20 @@ Total unit and integration tests across the repository increased from 19 to **33
 
 ## 5. Commands Executed and Pass/Fail Results
 
-| Command | Exit Code | Result | Details |
-| :--- | :---: | :---: | :--- |
-| `npm.cmd run lint` | 0 | **PASS** | 0 errors, 7 warnings across all source files. |
-| `npm.cmd run typecheck` (`tsc --noEmit`) | 0 | **PASS** | **0 errors**. All 69 baseline TypeScript compilation errors resolved! |
-| `npm.cmd test` (`vitest run`) | 0 | **PASS** | **8 test files passed, 33 tests passed** (100% success). |
-| `npm.cmd run test:e2e` (`playwright test`) | 0 | **PASS** | **8 of 8 browser tests passed** on Desktop and Mobile Chrome (1.1m). |
-| `npm.cmd run build` | 0 | **PASS** | Production client bundle and Nitro Cloudflare Worker built cleanly. |
+| Command                                    | Exit Code |  Result  | Details                                                               |
+| :----------------------------------------- | :-------: | :------: | :-------------------------------------------------------------------- |
+| `npm.cmd run lint`                         |     0     | **PASS** | 0 errors, 7 warnings across all source files.                         |
+| `npm.cmd run typecheck` (`tsc --noEmit`)   |     0     | **PASS** | **0 errors**. All 69 baseline TypeScript compilation errors resolved! |
+| `npm.cmd test` (`vitest run`)              |     0     | **PASS** | **8 test files passed, 33 tests passed** (100% success).              |
+| `npm.cmd run test:e2e` (`playwright test`) |     0     | **PASS** | **8 of 8 browser tests passed** on Desktop and Mobile Chrome (1.1m).  |
+| `npm.cmd run build`                        |     0     | **PASS** | Production client bundle and Nitro Cloudflare Worker built cleanly.   |
 
 ---
 
 ## 6. Screenshots & Evidence for UI State
 
 Zero UI or visual regressions were introduced. The baseline aesthetic, typography, and Motion animations remain pristine:
+
 - All 8 Playwright E2E browser tests passed covering the homepage canvas, authentication forms, protected route redirects, and 404 boundaries.
 - The UI navigation links in `FloatingNavbar.tsx` seamlessly route without console errors or runtime warnings.
 
@@ -119,6 +120,7 @@ Zero UI or visual regressions were introduced. The baseline aesthetic, typograph
 ## 10. Final Status: PASS ✅
 
 **Rationale**:
+
 - Environment schema validation implemented with Zod and comprehensive test coverage.
 - Supabase client hardened with typesafe configuration, singleton management, and `checkSupabaseHealth()`.
 - Complete resolution of all 69 TypeScript compilation errors (`tsc --noEmit` exits with 0).
