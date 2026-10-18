@@ -15,7 +15,7 @@ const items = [
 
 export function FloatingNavbar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const { session } = useDemo();
+  const { session, profile } = useDemo();
   const [hover, setHover] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -32,6 +32,7 @@ export function FloatingNavbar() {
     i.to === "/" ? path === "/" : path.startsWith(i.to),
   )?.to;
   const indicator = hover ?? active;
+  const displayName = profile?.display_name || session?.name || "Explorer";
 
   return (
     <>
@@ -146,14 +147,26 @@ export function FloatingNavbar() {
               </Link>
 
               <div className="flex items-center justify-between border-t border-border/60 pt-3">
-                <div className="flex min-w-0 items-center gap-2 pr-1">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface-2 font-mono text-[10px] font-semibold text-signal">
-                    {session.name ? session.name.slice(0, 2).toUpperCase() : "CS"}
-                  </div>
+                <Link
+                  to="/constellation"
+                  className="flex min-w-0 items-center gap-2 pr-1 transition-opacity hover:opacity-80"
+                  title="View your constellation profile"
+                >
+                  {profile?.avatar_path ? (
+                    <img
+                      src={profile.avatar_path}
+                      alt={displayName}
+                      className="h-7 w-7 shrink-0 rounded-md border border-border object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface-2 font-mono text-[10px] font-semibold text-signal">
+                      {displayName.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
                   <span className="truncate text-xs font-medium text-foreground">
-                    {session.name.split(" ")[0]}
+                    {displayName.split(" ")[0]}
                   </span>
-                </div>
+                </Link>
                 <button
                   onClick={handleSignOut}
                   className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface hover:text-destructive"
