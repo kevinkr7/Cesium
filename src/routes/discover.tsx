@@ -297,6 +297,12 @@ function ProfileCard({
             </span>
           ))}
         </div>
+        {p.uncommonGround?.anchor && s.length <= 1 && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-signal">
+            <span className="label-mono">Anchor:</span>
+            <span>{p.uncommonGround.anchor}</span>
+          </div>
+        )}
         <p className="mt-4 border-l border-signal pl-3 text-sm">{p.why}</p>
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
           <ConnectButton id={p.id} name={p.name} />
@@ -391,6 +397,30 @@ function ProfileSheet({
           <p className="label-mono text-signal">Overlap engine note</p>
           <p className="mt-2 text-lg">{p.why}</p>
         </div>
+        {p.uncommonGround && (
+          <div className="mt-6 border-t border-border pt-4">
+            <p className="label-mono text-signal">Uncommon Ground perspective</p>
+            <div className="mt-2 space-y-1.5 text-xs">
+              {p.uncommonGround.anchor && (
+                <p>
+                  <span className="text-muted-foreground">Shared Anchor:</span>{" "}
+                  <span className="font-semibold text-foreground">{p.uncommonGround.anchor}</span>
+                </p>
+              )}
+              {p.uncommonGround.novelCategories.length > 0 && (
+                <p>
+                  <span className="text-muted-foreground">Novel Horizons:</span>{" "}
+                  <span className="font-semibold text-foreground">
+                    {p.uncommonGround.novelCategories.join(", ")}
+                  </span>
+                </p>
+              )}
+              <p className="label-mono text-[11px] text-muted-foreground">
+                Serendipity index: {p.uncommonGround.contrastScore}%
+              </p>
+            </div>
+          </div>
+        )}
         <div className="mt-auto pt-8">
           <ConnectButton id={p.id} name={p.name} />
         </div>

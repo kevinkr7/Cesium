@@ -2,6 +2,14 @@ import { getSupabase } from "@/lib/supabase/client";
 import { people, interestCategories, shared } from "@/lib/data";
 import { CURATED_GRAPH_EDGES } from "@/services/interests";
 
+export type UncommonGroundAnalysis = {
+  anchor: string | null;
+  novelInterests: string[];
+  novelCategories: string[];
+  contrastScore: number;
+  perspectiveExplanation: string;
+};
+
 export type DiscoveryCandidate = {
   id: string;
   name: string;
@@ -16,6 +24,7 @@ export type DiscoveryCandidate = {
   connectionStatus: "none" | "pending" | "connected";
   recent?: boolean | undefined;
   featured?: boolean | undefined;
+  uncommonGround?: UncommonGroundAnalysis | undefined;
 };
 
 export type CrossDomainBridge = {
@@ -288,13 +297,86 @@ export function computeUncommonGroundExplanation(
   theirInterests: string[],
 ): string {
   const sharedList = shared(myInterests, theirInterests);
-  const anchor = sharedList[0];
-  const different = theirInterests.filter((x) => !myInterests.includes(x))[0];
+  const myCategories = new Set(myInterests.map(getCategoryOf));
+  const different = theirInterests.filter((x) => !myInterests.includes(x));
+  const bridges = findCrossDomainBridges(myInterests, theirInterests);
 
-  if (anchor && different) {
-    return `You both connect over ${anchor}, but their interest in ${different} opens an entirely different orbit.`;
+  // Find a novel interest, prioritizing those in categories the user does not have
+  const novelFromNewCategory = different.find((d) => !myCategories.has(getCategoryOf(d)));
+  const novel = novelFromNewCategory ?? different[0];
+
+  if (sharedList.length > 0 && sharedList[0]) {
+    const anchor = sharedList[0];
+    if (novel) {
+      const cat = getCategoryOf(novel);
+      const catSuffix = cat !== "Unusual obsessions" && !myCategories.has(cat) ? ` (${cat})` : "";
+      return `You both connect over ${anchor}, but their interest in ${novel}${catSuffix} opens an entirely different orbit.`;
+    }
+    return `You both share common ground in ${anchor}, with space to explore new horizons together.`;
   }
+
+  if (bridges.length > 0 && bridges[0]) {
+    const b = bridges[0];
+    const novelDesc = novel
+      ? `with ${novel} offering uncharted territory`
+      : "offering room for novel discovery";
+    return `Connected across domains via ${b.from} ↔ ${b.to}, ${novelDesc}.`;
+  }
+
   return "An uncommon overlap of disparate perspectives and shared curiosity.";
+}
+
+/**
+ * Detailed Uncommon Ground analysis: extracts anchor, novel interests, category divergences, and serendipity contrast score
+ */
+export function analyzeUncommonGround(
+  myInterests: string[],
+  theirInterests: string[],
+): UncommonGroundAnalysis {
+  const sharedList = shared(myInterests, theirInterests);
+  const bridges = findCrossDomainBridges(myInterests, theirInterests);
+
+  let anchor: string | null = null;
+  if (sharedList.length > 0 && sharedList[0]) {
+    anchor = sharedList[0];
+  } else if (bridges.length > 0 && bridges[0]) {
+    anchor = `${bridges[0].from} ↔ ${bridges[0].to}`;
+  }
+
+  const novelInterests = theirInterests.filter((x) => !myInterests.includes(x));
+  const myCategories = new Set(myInterests.map(getCategoryOf));
+  const theirCategories = new Set(theirInterests.map(getCategoryOf));
+  const novelCategories = Array.from(theirCategories).filter((cat) => !myCategories.has(cat));
+
+  // Contrast / serendipity score (0 - 100)
+  // Rewards 1 shared anchor plus broad exposure to novel categories/interests
+  let baseAnchor = 0;
+  if (sharedList.length === 1) {
+    baseAnchor = 35; // Perfect 1-anchor sweet spot for uncommon ground
+  } else if (sharedList.length > 1) {
+    baseAnchor = Math.max(15, 35 - (sharedList.length - 1) * 8);
+  } else if (bridges.length > 0) {
+    baseAnchor = 25; // Connected via cross-domain bridge
+  } else {
+    baseAnchor = 5;
+  }
+
+  const categoryBonus = Math.min(40, novelCategories.length * 15);
+  const interestBonus = Math.min(25, novelInterests.length * 5);
+  const contrastScore = Math.min(
+    100,
+    Math.max(0, Math.round(baseAnchor + categoryBonus + interestBonus)),
+  );
+
+  const perspectiveExplanation = computeUncommonGroundExplanation(myInterests, theirInterests);
+
+  return {
+    anchor,
+    novelInterests,
+    novelCategories,
+    contrastScore,
+    perspectiveExplanation,
+  };
 }
 
 async function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T | null> {
@@ -334,19 +416,28 @@ export async function fetchDiscoveryPeople(
       );
 
       if (res && !res.error && res.data && res.data.length > 0) {
-        return res.data.map((r) => ({
-          id: r.id,
-          name: r.display_name,
-          handle: r.handle,
-          city: r.city ?? "Worldwide",
-          photo: r.avatar_path ?? undefined,
-          bio: r.bio ?? "",
-          interests: r.interests,
-          sharedInterests: r.shared_interests,
-          matchScore: Number(r.match_score),
-          why: r.explanation,
-          connectionStatus: (r.connection_status as "none" | "pending" | "connected") ?? "none",
-        }));
+        return res.data.map((r) => {
+          const uncommonGround = analyzeUncommonGround(myInterests, r.interests);
+          const why =
+            filter === "Uncommon connections"
+              ? uncommonGround.perspectiveExplanation
+              : r.explanation;
+
+          return {
+            id: r.id,
+            name: r.display_name,
+            handle: r.handle,
+            city: r.city ?? "Worldwide",
+            photo: r.avatar_path ?? undefined,
+            bio: r.bio ?? "",
+            interests: r.interests,
+            sharedInterests: r.shared_interests,
+            matchScore: Number(r.match_score),
+            why,
+            connectionStatus: (r.connection_status as "none" | "pending" | "connected") ?? "none",
+            uncommonGround,
+          };
+        });
       }
     } catch {
       // Fallback gracefully to client deterministic matching
@@ -361,11 +452,12 @@ export async function fetchDiscoveryPeople(
         myStyles: options?.myStyles,
         includeBridges: true,
       });
+      const uncommonGround = analyzeUncommonGround(myInterests, p.interests);
       const connStatus: "none" | "pending" | "connected" =
         (connectionsRecord[p.id] as "none" | "pending" | "connected") ?? "none";
       const why =
         filter === "Uncommon connections" && matchResult.sharedList.length <= 1
-          ? computeUncommonGroundExplanation(myInterests, p.interests)
+          ? uncommonGround.perspectiveExplanation
           : matchResult.explanation || p.why;
 
       return {
@@ -382,6 +474,7 @@ export async function fetchDiscoveryPeople(
         connectionStatus: connStatus,
         recent: p.recent,
         featured: p.featured,
+        uncommonGround,
       };
     })
     .filter((p) => {
