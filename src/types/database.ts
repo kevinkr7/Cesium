@@ -396,6 +396,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      content_reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          content_type: "post" | "reply";
+          content_id: string;
+          reason: string;
+          details: string | null;
+          status: "pending" | "reviewed" | "dismissed";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          reporter_id: string;
+          content_type: "post" | "reply";
+          content_id: string;
+          reason: string;
+          details?: string | null;
+          status?: "pending" | "reviewed" | "dismissed";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          reporter_id?: string;
+          content_type?: "post" | "reply";
+          content_id?: string;
+          reason?: string;
+          details?: string | null;
+          status?: "pending" | "reviewed" | "dismissed";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: string;
@@ -484,6 +517,37 @@ export type Database = {
           match_score: number;
           explanation: string;
           connection_status: string;
+        }[];
+      };
+      rpc_block_user: {
+        Args: { p_target_user_id: string };
+        Returns: { success: boolean; message: string };
+      };
+      rpc_unblock_user: {
+        Args: { p_target_user_id: string };
+        Returns: { success: boolean; message: string };
+      };
+      rpc_report_user: {
+        Args: { p_reported_user_id: string; p_reason: string; p_details?: string };
+        Returns: { success: boolean; report_id: string };
+      };
+      rpc_report_content: {
+        Args: {
+          p_content_type: string;
+          p_content_id: string;
+          p_reason: string;
+          p_details?: string;
+        };
+        Returns: { success: boolean; report_id: string };
+      };
+      rpc_get_blocked_users: {
+        Args: Record<string, never>;
+        Returns: {
+          id: string;
+          display_name: string;
+          handle: string;
+          avatar_url: string | null;
+          blocked_at: string;
         }[];
       };
     };

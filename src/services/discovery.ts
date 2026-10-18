@@ -399,6 +399,7 @@ export async function fetchDiscoveryPeople(
   options?: {
     primaryInterests?: string[] | undefined;
     myStyles?: string[] | string | undefined;
+    blockedUserIds?: string[] | undefined;
   },
 ): Promise<DiscoveryCandidate[]> {
   const sb = getSupabase();
@@ -416,7 +417,7 @@ export async function fetchDiscoveryPeople(
       );
 
       if (res && !res.error && res.data && res.data.length > 0) {
-        return res.data.map((r) => {
+        const mapped = res.data.map((r) => {
           const uncommonGround = analyzeUncommonGround(myInterests, r.interests);
           const why =
             filter === "Uncommon connections"
@@ -438,6 +439,12 @@ export async function fetchDiscoveryPeople(
             uncommonGround,
           };
         });
+
+        const blocked = options?.blockedUserIds;
+        if (blocked && blocked.length > 0) {
+          return mapped.filter((item) => !blocked.includes(item.id));
+        }
+        return mapped;
       }
     } catch {
       // Fallback gracefully to client deterministic matching
@@ -478,6 +485,7 @@ export async function fetchDiscoveryPeople(
       };
     })
     .filter((p) => {
+      if (options?.blockedUserIds && options.blockedUserIds.includes(p.id)) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase().trim();
         const text =

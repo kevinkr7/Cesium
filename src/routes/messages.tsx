@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { ArrowUpRight, ArrowLeft } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, X } from "lucide-react";
 import { toast } from "sonner";
 import { people, shared } from "@/lib/data";
 import { setDemo, useDemo } from "@/lib/store";
@@ -15,6 +15,7 @@ import {
 } from "@/services/messaging";
 import { respondToConnectionRequest, removeConnection } from "@/services/connections";
 import { findCrossDomainBridges } from "@/services/discovery";
+import { blockUser, reportUser, REPORT_REASONS } from "@/services/safety";
 import { RequireAuth } from "@/components/RequireAuth";
 
 export const Route = createFileRoute("/messages")({
@@ -48,12 +49,21 @@ const fmt = (t: number) =>
 function Messages() {
   const { c } = Route.useSearch();
   const demo = useDemo();
-  const contacts = people.filter((p) => demo.connections[p.id] === "connected");
-  const pendingContacts = people.filter((p) => demo.connections[p.id] === "pending");
+  const blockedSet = new Set(demo.blockedUsers || []);
+  const contacts = people.filter(
+    (p) => demo.connections[p.id] === "connected" && !blockedSet.has(p.id),
+  );
+  const pendingContacts = people.filter(
+    (p) => demo.connections[p.id] === "pending" && !blockedSet.has(p.id),
+  );
   const [active, setActive] = useState<string | undefined>(c);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -342,16 +352,48 @@ function Messages() {
                 transition={{ duration: 0.25 }}
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <div className="flex items-center gap-3 border-b border-border p-4">
-                  <button
-                    onClick={() => setActive(undefined)}
-                    className="md:hidden"
-                    aria-label="Back"
-                  >
-                    <ArrowLeft size={16} />
-                  </button>
-                  <p className="font-medium">{person.name}</p>
-                  <span className="label-mono text-muted-foreground">{person.city}</span>
+                <div className="flex items-center justify-between border-b border-border p-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setActive(undefined)}
+                      className="md:hidden"
+                      aria-label="Back"
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                    <div>
+                      <p className="font-medium">{person.name}</p>
+                      <span className="label-mono text-xs text-muted-foreground">
+                        {person.city}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowReport(true)}
+                      title="Report user"
+                      className="label-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Report
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (
+                          window.confirm(
+                            `Block ${person.name}? You will no longer be able to message each other.`,
+                          )
+                        ) {
+                          await blockUser(person.id);
+                          setActive(undefined);
+                          toast(`Blocked ${person.name}`);
+                        }
+                      }}
+                      title="Block user"
+                      className="label-mono text-xs text-destructive/80 transition-colors hover:text-destructive hover:underline"
+                    >
+                      Block
+                    </button>
+                  </div>
                 </div>
                 <div className="flex-1 space-y-4 overflow-y-auto p-5" aria-live="polite">
                   {msgs.length === 0 && (
@@ -468,7 +510,7 @@ function Messages() {
                   </div>
                 </>
               )}
-              <div className="mt-8 border-t border-border pt-4">
+              <div className="mt-8 space-y-2 border-t border-border pt-4">
                 <button
                   onClick={async () => {
                     await removeConnection(person.id);
@@ -480,15 +522,122 @@ function Messages() {
                     setActive(undefined);
                     toast("Connection removed");
                   }}
-                  className="label-mono text-xs text-destructive hover:underline"
+                  className="block label-mono text-xs text-destructive hover:underline"
                 >
                   Remove connection
                 </button>
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => setShowReport(true)}
+                    className="label-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    Report user
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Block ${person.name}? You will no longer be able to message each other.`,
+                        )
+                      ) {
+                        await blockUser(person.id);
+                        setActive(undefined);
+                        toast(`Blocked ${person.name}`);
+                      }
+                    }}
+                    className="label-mono text-xs text-destructive/80 transition-colors hover:text-destructive hover:underline"
+                  >
+                    Block user
+                  </button>
+                </div>
               </div>
             </>
           )}
         </aside>
       </div>
+
+      <AnimatePresence>
+        {showReport && person && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md border border-border bg-surface p-6 shadow-xl"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-xl font-semibold">Report {person.name}</h3>
+                <button onClick={() => setShowReport(false)} aria-label="Close report">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Help us keep Cesium safe. Reports are reviewed in accordance with community
+                guidelines.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="label-mono text-xs text-muted-foreground block mb-1">
+                    Reason
+                  </label>
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-signal"
+                  >
+                    {REPORT_REASONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label-mono text-xs text-muted-foreground block mb-1">
+                    Additional details (optional)
+                  </label>
+                  <textarea
+                    value={reportDetails}
+                    onChange={(e) => setReportDetails(e.target.value)}
+                    placeholder="Describe what occurred…"
+                    rows={3}
+                    maxLength={1000}
+                    className="w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-signal"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowReport(false)}
+                  className="btn-ghost !py-1.5 text-xs text-muted-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={submittingReport}
+                  onClick={async () => {
+                    setSubmittingReport(true);
+                    const res = await reportUser(person.id, reportReason, reportDetails);
+                    setSubmittingReport(false);
+                    if (res.success) {
+                      toast.success("Thank you. Your report has been submitted.");
+                      setShowReport(false);
+                    } else {
+                      toast.error(res.error || "Failed to submit report");
+                    }
+                  }}
+                  className="btn-signal !py-1.5 text-xs"
+                >
+                  {submittingReport ? "Submitting…" : "Submit report"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

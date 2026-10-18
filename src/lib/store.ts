@@ -29,6 +29,7 @@ export type DemoState = {
   joined: string[];
   custom: Community[];
   messages: Record<string, Msg[]>;
+  blockedUsers: string[];
 };
 
 const KEY = "cesium-demo-v1";
@@ -45,6 +46,7 @@ const defaults: DemoState = {
   connections: { mira: "connected" },
   joined: ["2am-builders"],
   custom: [],
+  blockedUsers: [],
   messages: {
     mira: [
       {
