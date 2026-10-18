@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { getDemoState, setDemo } from "@/lib/store";
+import { sanitizeReportInput } from "@/lib/security";
 
 export type BlockedUser = {
   id: string;
@@ -303,7 +304,8 @@ export async function reportUser(
     return { success: false, error: "Cannot report yourself" };
   }
 
-  const validation = validateReportInput(reason, details);
+  const sanitized = sanitizeReportInput({ reason, details });
+  const validation = validateReportInput(sanitized.reason, sanitized.details);
   if (!validation.valid) {
     return { success: false, error: validation.error };
   }
@@ -322,8 +324,8 @@ export async function reportUser(
 
         const rpcRes = await sb.rpc("rpc_report_user", {
           p_reported_user_id: reportedUserId,
-          p_reason: reason.trim(),
-          p_details: details.trim(),
+          p_reason: sanitized.reason,
+          p_details: sanitized.details,
         });
 
         if (!rpcRes.error && rpcRes.data) {
@@ -336,8 +338,8 @@ export async function reportUser(
           .insert({
             reporter_id: session.user.id,
             reported_user_id: reportedUserId,
-            reason: reason.trim(),
-            details: details.trim(),
+            reason: sanitized.reason,
+            details: sanitized.details,
             status: "pending",
           })
           .select("id")
@@ -373,7 +375,8 @@ export async function reportContent(
     return { success: false, error: "Content ID is required" };
   }
 
-  const validation = validateReportInput(reason, details);
+  const sanitized = sanitizeReportInput({ reason, details });
+  const validation = validateReportInput(sanitized.reason, sanitized.details);
   if (!validation.valid) {
     return { success: false, error: validation.error };
   }
@@ -389,8 +392,8 @@ export async function reportContent(
         const rpcRes = await sb.rpc("rpc_report_content", {
           p_content_type: contentType,
           p_content_id: contentId,
-          p_reason: reason.trim(),
-          p_details: details.trim(),
+          p_reason: sanitized.reason,
+          p_details: sanitized.details,
         });
 
         if (!rpcRes.error && rpcRes.data) {
@@ -404,8 +407,8 @@ export async function reportContent(
             reporter_id: session.user.id,
             content_type: contentType,
             content_id: contentId,
-            reason: reason.trim(),
-            details: details.trim(),
+            reason: sanitized.reason,
+            details: sanitized.details,
             status: "pending",
           })
           .select("id")

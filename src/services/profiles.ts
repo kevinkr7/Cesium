@@ -14,8 +14,10 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 }
 
 export async function isHandleAvailable(handle: string, currentUserId?: string): Promise<boolean> {
-  const cleanHandle = handle.replace(/^@/, "").trim().toLowerCase();
-  if (cleanHandle.length < 2 || cleanHandle.length > 30) return false;
+  const rawClean = handle.replace(/^@/, "").trim().toLowerCase();
+  if (rawClean.length < 2 || rawClean.length > 30) return false;
+
+  const cleanHandle = sanitizeHandle(handle);
 
   const sb = getSupabase();
   if (!sb) return true;
@@ -36,6 +38,14 @@ export async function isHandleAvailable(handle: string, currentUserId?: string):
   }
 }
 
+import {
+  sanitizeHandle,
+  validateHandle,
+  sanitizeDisplayName,
+  sanitizeBio,
+  sanitizeCity,
+} from "@/lib/security";
+
 export const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 export const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -46,18 +56,18 @@ export function validateProfileUpdates(updates: {
   city?: string | null | undefined;
 }): { valid: boolean; error: string | null } {
   if (updates.display_name !== undefined && updates.display_name !== null) {
-    const trimmed = updates.display_name.trim();
-    if (!trimmed || trimmed.length > 60) {
+    const rawTrim = updates.display_name.trim();
+    if (!rawTrim || rawTrim.length > 60) {
       return { valid: false, error: "Display name must be between 1 and 60 characters." };
     }
   }
 
   if (updates.handle !== undefined && updates.handle !== null) {
-    const clean = updates.handle.replace(/^@/, "").trim().toLowerCase();
-    if (!/^[a-z0-9_]{3,30}$/.test(clean)) {
+    const handleResult = validateHandle(updates.handle);
+    if (!handleResult.valid) {
       return {
         valid: false,
-        error: "Handle must be 3-30 characters of lowercase letters, numbers, or underscores.",
+        error: handleResult.error,
       };
     }
   }
@@ -96,7 +106,16 @@ export async function updateProfile(
 
   const cleanUpdates = { ...updates };
   if (cleanUpdates.handle) {
-    cleanUpdates.handle = cleanUpdates.handle.replace(/^@/, "").trim().toLowerCase();
+    cleanUpdates.handle = sanitizeHandle(cleanUpdates.handle);
+  }
+  if (cleanUpdates.display_name) {
+    cleanUpdates.display_name = sanitizeDisplayName(cleanUpdates.display_name);
+  }
+  if (cleanUpdates.bio) {
+    cleanUpdates.bio = sanitizeBio(cleanUpdates.bio);
+  }
+  if (cleanUpdates.city) {
+    cleanUpdates.city = sanitizeCity(cleanUpdates.city);
   }
 
   const { error } = await sb
