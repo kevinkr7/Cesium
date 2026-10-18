@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { ArrowUpRight, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import { people, shared } from "@/lib/data";
 import { setDemo, useDemo } from "@/lib/store";
 import {
@@ -10,6 +11,7 @@ import {
   subscribeToConversationMessages,
   fetchConversationMessages,
 } from "@/services/messaging";
+import { respondToConnectionRequest, removeConnection } from "@/services/connections";
 
 import { RequireAuth } from "@/components/RequireAuth";
 
@@ -45,6 +47,7 @@ function Messages() {
   const { c } = Route.useSearch();
   const demo = useDemo();
   const contacts = people.filter((p) => demo.connections[p.id] === "connected");
+  const pendingContacts = people.filter((p) => demo.connections[p.id] === "pending");
   const [active, setActive] = useState<string | undefined>(c);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
@@ -165,6 +168,48 @@ function Messages() {
           className={`overflow-y-auto border-r border-border ${active ? "hidden md:block" : ""}`}
           aria-label="Conversations"
         >
+          {pendingContacts.length > 0 && (
+            <li className="border-b border-border bg-signal/5 p-4">
+              <p className="label-mono text-xs font-semibold text-signal">
+                Pending Requests ({pendingContacts.length})
+              </p>
+              <div className="mt-2 space-y-2">
+                {pendingContacts.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="truncate font-medium text-foreground">{p.name}</span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        onClick={async () => {
+                          await respondToConnectionRequest(p.id, "accepted");
+                          setDemo((s) => ({
+                            connections: { ...s.connections, [p.id]: "connected" },
+                          }));
+                          toast.success(`Connected with ${p.name}`);
+                        }}
+                        className="btn-signal !px-2 !py-0.5 text-[10px]"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await respondToConnectionRequest(p.id, "declined");
+                          setDemo((s) => {
+                            const updated = { ...s.connections };
+                            delete updated[p.id];
+                            return { connections: updated };
+                          });
+                          toast("Request declined");
+                        }}
+                        className="btn-ghost !px-2 !py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </li>
+          )}
           {contacts.length === 0 && (
             <li className="p-6 text-sm text-muted-foreground">
               No connections yet.{" "}
@@ -326,6 +371,23 @@ function Messages() {
                     {x}
                   </span>
                 ))}
+              </div>
+              <div className="mt-8 border-t border-border pt-4">
+                <button
+                  onClick={async () => {
+                    await removeConnection(person.id);
+                    setDemo((s) => {
+                      const updated = { ...s.connections };
+                      delete updated[person.id];
+                      return { connections: updated };
+                    });
+                    setActive(undefined);
+                    toast("Connection removed");
+                  }}
+                  className="label-mono text-xs text-destructive hover:underline"
+                >
+                  Remove connection
+                </button>
               </div>
             </>
           )}

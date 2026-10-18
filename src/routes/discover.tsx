@@ -5,7 +5,12 @@ import { Search, ArrowUpRight, X } from "lucide-react";
 import { toast } from "sonner";
 import { setDemo, useDemo } from "@/lib/store";
 import { fetchDiscoveryPeople, type DiscoveryCandidate } from "@/services/discovery";
-import { sendConnectionRequest, respondToConnectionRequest } from "@/services/connections";
+import {
+  sendConnectionRequest,
+  respondToConnectionRequest,
+  cancelConnectionRequest,
+  removeConnection,
+} from "@/services/connections";
 import { shared } from "@/lib/data";
 
 import { RequireAuth } from "@/components/RequireAuth";
@@ -198,17 +203,34 @@ function ConnectButton({ id, name }: { id: string; name: string }) {
 
   if (st === "pending") {
     return (
-      <button
-        onClick={async () => {
-          await respondToConnectionRequest(id, "accepted");
-          setDemo((s) => ({ connections: { ...s.connections, [id]: "connected" } }));
-          toast.success(`Connected with ${name}`);
-        }}
-        className="btn-ghost !py-2.5 text-sm text-muted-foreground"
-        title="Pending connection approval"
-      >
-        Pending… <span className="label-mono text-signal">simulate</span>
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={async () => {
+            await respondToConnectionRequest(id, "accepted");
+            setDemo((s) => ({ connections: { ...s.connections, [id]: "connected" } }));
+            toast.success(`Connected with ${name}`);
+          }}
+          className="btn-ghost !px-3 !py-2 text-xs text-muted-foreground"
+          title="Pending connection approval"
+        >
+          Pending… <span className="label-mono text-signal">accept</span>
+        </button>
+        <button
+          onClick={async () => {
+            await cancelConnectionRequest(id);
+            setDemo((s) => {
+              const updated = { ...s.connections };
+              delete updated[id];
+              return { connections: updated };
+            });
+            toast("Connection request canceled");
+          }}
+          className="label-mono text-xs text-muted-foreground underline hover:text-destructive"
+          title="Cancel request"
+        >
+          Cancel
+        </button>
+      </div>
     );
   }
 
@@ -423,6 +445,23 @@ function ProfileSheet({
         )}
         <div className="mt-auto pt-8">
           <ConnectButton id={p.id} name={p.name} />
+          {p.connectionStatus === "connected" && (
+            <button
+              onClick={async () => {
+                await removeConnection(p.id);
+                setDemo((s) => {
+                  const updated = { ...s.connections };
+                  delete updated[p.id];
+                  return { connections: updated };
+                });
+                toast("Connection removed");
+                onClose();
+              }}
+              className="mt-3 block label-mono text-xs text-destructive hover:underline"
+            >
+              Disconnect / Remove connection
+            </button>
+          )}
         </div>
       </motion.aside>
     </motion.div>

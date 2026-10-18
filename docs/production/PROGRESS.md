@@ -1,8 +1,8 @@
 # CESIUM — PRODUCTION ROADMAP & PROGRESS TRACKER
 
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-17  
-**Current Phase**: Phase 7 — Uncommon Ground Discovery (COMPLETED)  
-**Active Branch**: `phase-7-uncommon-ground-discovery`
+**Current Phase**: Phase 8 — Connections & Relationship Lifecycle (COMPLETED)  
+**Active Branch**: `phase-8-connections-lifecycle`
 
 ---
 
@@ -14,11 +14,11 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | **Phase 1**  | **Environment & Supabase Configuration**  | **PASS** ✅ | `docs/production/phase-1.md`  | Zod env validation active; typesafe Supabase client; 0 tsc errors (down from 69); 0 lint errors; 33/33 Unit & 8/8 E2E pass |
 | **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  |         3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass         |
 | **Phase 3**  | **Seed Data & Graph Relations**           | **PASS** ✅ | `docs/production/phase-3.md`  |    4 versioned migrations; 29 catalog interests; cross-domain bridges; symmetric traversal; 52/52 Vitest & 8/8 E2E pass    |
-| **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |    5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass     |
-| **Phase 5**  | **Profile & Constellation State**         | **PASS** ✅ | `docs/production/phase-5.md`  |    Profile settings modal; avatar upload; 3+ curated interest guard; node type toggling; 79/79 Vitest & 8/8 E2E pass     |
-| **Phase 6**  | **Deterministic Matching Engine**         | **PASS** ✅ | `docs/production/phase-6.md`  |   Jaccard base + style synergy + cross-domain bridges; bounded 0-100; 87/87 Vitest & 8/8 E2E pass; 0 tsc & lint errors    |
-| **Phase 7**  | **Uncommon Ground Discovery**             | **PASS** ✅ | `docs/production/phase-7.md`  | Anchor analysis + serendipity scoring + UI perspective drawer; 98/98 Vitest & 8/8 E2E pass; 0 tsc & lint errors           |
-| **Phase 8**  | Connections & Relationship Lifecycle      |   PENDING   | `docs/production/phase-8.md`  |                                                             —                                                              |
+| **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |    5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass    |
+| **Phase 5**  | **Profile & Constellation State**         | **PASS** ✅ | `docs/production/phase-5.md`  |     Profile settings modal; avatar upload; 3+ curated interest guard; node type toggling; 79/79 Vitest & 8/8 E2E pass      |
+| **Phase 6**  | **Deterministic Matching Engine**         | **PASS** ✅ | `docs/production/phase-6.md`  |    Jaccard base + style synergy + cross-domain bridges; bounded 0-100; 87/87 Vitest & 8/8 E2E pass; 0 tsc & lint errors    |
+| **Phase 7**  | **Uncommon Ground Discovery**             | **PASS** ✅ | `docs/production/phase-7.md`  |      Anchor analysis + serendipity scoring + UI perspective drawer; 98/98 Vitest & 8/8 E2E pass; 0 tsc & lint errors       |
+| **Phase 8**  | **Connections & Relationship Lifecycle**  | **PASS** ✅ | `docs/production/phase-8.md`  |    Transitions, pending inbox, request cancel, disconnect & gating; 108/108 Vitest & 8/8 E2E pass; 0 tsc & lint errors     |
 | **Phase 9**  | Icebreakers & Realtime Messaging          |   PENDING   | `docs/production/phase-9.md`  |                                                             —                                                              |
 | **Phase 10** | Micro-Communities & Threads               |   PENDING   | `docs/production/phase-10.md` |                                                             —                                                              |
 | **Phase 11** | Safety, Blocking & Content Moderation     |   PENDING   | `docs/production/phase-11.md` |                                                             —                                                              |
@@ -187,5 +187,24 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
 - [x] Verify clean production build (`npm run build` exits with 0).
 
+---
 
+## Phase 8 Checklist
 
+- [x] Implement robust relationship lifecycle state transitions (`none` → `pending` → `accepted` / `declined` / `canceled` / `removed`) in `src/services/connections.ts`.
+- [x] Prevent sending connection requests to oneself (`requester_id <> recipient_id`).
+- [x] Enforce authorized response policy (only recipient can accept or decline a request).
+- [x] Enforce authorized cancellation policy (only requester can cancel a pending outbound request).
+- [x] Implement automatic translation from target user ID to connection record UUID in `respondToConnectionRequest()`.
+- [x] Implement private messaging gatekeeper `canInitiateConversation(targetUserId)` requiring accepted connection status.
+- [x] Synchronize connection changes bidirectionally with external store (`syncConnections()`).
+- [x] Add interactive "Pending Requests" inbox review banner with Accept and Decline actions in `src/routes/messages.tsx`.
+- [x] Add connection removal action in conversation sidebar in `src/routes/messages.tsx`.
+- [x] Support request cancellation directly from `ConnectButton` on discovery cards in `src/routes/discover.tsx`.
+- [x] Support disconnecting active connections from `ProfileSheet` drawer in `src/routes/discover.tsx`.
+- [x] Expand connection lifecycle test suite in `src/test/connection-lifecycle.test.ts` to 13 comprehensive tests.
+- [x] Verify complete test suite execution (108/108 Vitest unit and integration tests passing across 12 files).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`npm run lint` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
