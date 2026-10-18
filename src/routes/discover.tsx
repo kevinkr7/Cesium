@@ -11,6 +11,7 @@ import {
   cancelConnectionRequest,
   removeConnection,
 } from "@/services/connections";
+import { blockUser, reportUser, REPORT_REASONS } from "@/services/safety";
 import { shared } from "@/lib/data";
 
 import { RequireAuth } from "@/components/RequireAuth";
@@ -60,6 +61,7 @@ function Discover() {
     fetchDiscoveryPeople(currentMine, f, q, demo.connections, {
       primaryInterests: demo.interests.slice(0, 3),
       myStyles: demo.styles,
+      blockedUserIds: demo.blockedUsers || [],
     }).then((data) => {
       if (active) {
         setCandidates(data);
@@ -69,7 +71,17 @@ function Discover() {
     return () => {
       active = false;
     };
-  }, [q, f, mineKey, connectionsKey, demo.connections, demo.interests, demo.niche, demo.styles]);
+  }, [
+    q,
+    f,
+    mineKey,
+    connectionsKey,
+    demo.connections,
+    demo.interests,
+    demo.niche,
+    demo.styles,
+    demo.blockedUsers,
+  ]);
 
   return (
     <section className="gutter min-h-[100svh] pb-24 pt-32">
@@ -349,6 +361,10 @@ function ProfileSheet({
   mine: string[];
   onClose: () => void;
 }) {
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
   const s = p.sharedInterests.length > 0 ? p.sharedInterests : shared(p.interests, mine);
   return (
     <motion.div
@@ -462,7 +478,115 @@ function ProfileSheet({
               Disconnect / Remove connection
             </button>
           )}
+
+          <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
+            <button
+              onClick={() => setShowReport(true)}
+              className="label-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Report profile
+            </button>
+            <button
+              onClick={async () => {
+                if (
+                  window.confirm(
+                    `Are you sure you want to block ${p.name}? They will no longer appear in your discovery feed or conversations.`,
+                  )
+                ) {
+                  await blockUser(p.id);
+                  toast(`Blocked ${p.name}`);
+                  onClose();
+                }
+              }}
+              className="label-mono text-xs text-destructive/80 transition-colors hover:text-destructive hover:underline"
+            >
+              Block user
+            </button>
+          </div>
         </div>
+
+        <AnimatePresence>
+          {showReport && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-md border border-border bg-surface p-6 shadow-xl"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-xl font-semibold">Report {p.name}</h3>
+                  <button onClick={() => setShowReport(false)} aria-label="Close report">
+                    <X size={16} />
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Help us keep Cesium safe. Reports are reviewed in accordance with community
+                  guidelines.
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="label-mono text-xs text-muted-foreground block mb-1">
+                      Reason
+                    </label>
+                    <select
+                      value={reportReason}
+                      onChange={(e) => setReportReason(e.target.value)}
+                      className="w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-signal"
+                    >
+                      {REPORT_REASONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="label-mono text-xs text-muted-foreground block mb-1">
+                      Additional details (optional)
+                    </label>
+                    <textarea
+                      value={reportDetails}
+                      onChange={(e) => setReportDetails(e.target.value)}
+                      placeholder="Describe what occurred…"
+                      rows={3}
+                      maxLength={1000}
+                      className="w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-signal"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => setShowReport(false)}
+                    className="btn-ghost !py-1.5 text-xs text-muted-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={submittingReport}
+                    onClick={async () => {
+                      setSubmittingReport(true);
+                      const res = await reportUser(p.id, reportReason, reportDetails);
+                      setSubmittingReport(false);
+                      if (res.success) {
+                        toast.success("Thank you. Your report has been submitted.");
+                        setShowReport(false);
+                      } else {
+                        toast.error(res.error || "Failed to submit report");
+                      }
+                    }}
+                    className="btn-signal !py-1.5 text-xs"
+                  >
+                    {submittingReport ? "Submitting…" : "Submit report"}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </motion.aside>
     </motion.div>
   );

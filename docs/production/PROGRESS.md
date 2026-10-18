@@ -1,8 +1,8 @@
 # CESIUM — PRODUCTION ROADMAP & PROGRESS TRACKER
 
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-18  
-**Current Phase**: Phase 10 — Micro-Communities & Threads (COMPLETED)  
-**Active Branch**: `phase-10-communities-threads`
+**Current Phase**: Phase 11 — Safety, Blocking & Content Moderation (COMPLETED)  
+**Active Branch**: `phase-11-safety-moderation`
 
 ---
 
@@ -21,7 +21,7 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | **Phase 8**  | **Connections & Relationship Lifecycle**  | **PASS** ✅ | `docs/production/phase-8.md`  |     Transitions, pending inbox, request cancel, disconnect & gating; 108/108 Vitest & 8/8 E2E pass; 0 tsc & lint errors      |
 | **Phase 9**  | **Icebreakers & Realtime Messaging**      | **PASS** ✅ | `docs/production/phase-9.md`  |  Bridge starters, direct conv RPC, Realtime publication & delivery status; 121/121 Vitest & 8/8 E2E pass; 0 tsc/lint errors  |
 | **Phase 10** | **Micro-Communities & Threads**           | **PASS** ✅ | `docs/production/phase-10.md` | Micro-community creation, membership toggles, discussion threads & replies; 136/136 Vitest & 8/8 E2E pass; 0 tsc/lint errors |
-| **Phase 11** | Safety, Blocking & Content Moderation     |   PENDING   | `docs/production/phase-11.md` |                                                              —                                                               |
+| **Phase 11** | **Safety, Blocking & Content Moderation** | **PASS** ✅ | `docs/production/phase-11.md` |      User blocking, relationship severing, reports & content scanning; 149/149 Vitest & 8/8 E2E pass; 0 tsc/lint errors      |
 | **Phase 12** | Production Hardening, RLS & Security      |   PENDING   | `docs/production/phase-12.md` |                                                              —                                                               |
 | **Phase 13** | End-to-End Verification Suite             |   PENDING   | `docs/production/phase-13.md` |                                                              —                                                               |
 | **Phase 14** | Production Deployment & Release Readiness |   PENDING   | `docs/production/phase-14.md` |                                                              —                                                               |
@@ -246,6 +246,27 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Update `src/routes/communities.$id.tsx` with thread body display, inline reply forms, and authorized delete buttons.
 - [x] Add comprehensive test suite in `src/test/communities-threads.test.ts` (15 tests) covering communities, memberships, threads, replies, validation, deletion permissions, and migration parity.
 - [x] Verify complete test suite execution (136/136 Vitest unit and integration tests passing across 13 files).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`npm run lint` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 11 Checklist
+
+- [x] Create additive migration `supabase/migrations/20261017000006_safety_moderation_rpc.sql` with `content_reports` table and RPCs: `rpc_block_user`, `rpc_unblock_user`, `rpc_report_user`, `rpc_report_content`, and `rpc_get_blocked_users`.
+- [x] Update TypeScript database definitions in `src/types/database.ts` with typed schema for `content_reports` and all 5 safety RPC functions.
+- [x] Implement comprehensive safety service in `src/services/safety.ts` (`blockUser`, `unblockUser`, `reportUser`, `reportContent`, `checkContentSafety`, `validateReportInput`, `fetchBlockedUsers`, and store syncing).
+- [x] Add reactive `blockedUsers: string[]` to `DemoState` in `src/lib/store.ts` ensuring blocked state persists and syncs.
+- [x] Update `src/services/discovery.ts` to filter out blocked users across both Supabase and offline candidate matching feeds.
+- [x] Add "Report profile" and "Block user" actions with interactive report modal to `ProfileSheet` in `src/routes/discover.tsx`.
+- [x] Add "Report user" and "Block user" actions to chat header and connection context sidebar in `src/routes/messages.tsx`.
+- [x] Filter active and pending contacts lists in `src/routes/messages.tsx` against blocked users.
+- [x] Add automated content moderation screening (`checkContentSafety`) to community thread and reply submissions in `src/routes/communities.$id.tsx`.
+- [x] Add content report buttons and Report modal dialog to community discussion threads and replies in `src/routes/communities.$id.tsx`.
+- [x] Expand `src/test/safety-validation.test.ts` to 17 comprehensive unit & integration tests covering auth rules, self-block prevention, connection severing, discovery filtering, report validation, and toxic content scanning.
+- [x] Verify complete test suite execution (149/149 Vitest unit and integration tests passing across 13 files).
 - [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
 - [x] Verify zero ESLint errors (`npm run lint` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).

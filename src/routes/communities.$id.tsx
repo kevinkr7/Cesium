@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Flag, X } from "lucide-react";
 import { toast } from "sonner";
 import { communities, people } from "@/lib/data";
 import { useDemo } from "@/lib/store";
@@ -11,6 +11,7 @@ import {
   createCommunityReply,
   deleteCommunityThread,
 } from "@/services/communities";
+import { checkContentSafety, reportContent, REPORT_REASONS } from "@/services/safety";
 
 import { RequireAuth } from "@/components/RequireAuth";
 
@@ -52,6 +53,14 @@ function Detail() {
   const [replyTexts, setReplyTexts] = useState<Record<number, string>>({});
   const [showNewThread, setShowNewThread] = useState(false);
   const [open, setOpen] = useState<number | null>(0);
+  const [reportTarget, setReportTarget] = useState<{
+    type: "post" | "reply";
+    id: string;
+    title: string;
+  } | null>(null);
+  const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   const c = [...communities, ...demo.custom].find((x) => x.id === id);
 
@@ -81,6 +90,13 @@ function Detail() {
     e.preventDefault();
     if (newTitle.trim().length < 3) return;
 
+    const titleSafety = checkContentSafety(newTitle);
+    const contentSafety = checkContentSafety(newContent);
+    if (!titleSafety.safe || !contentSafety.safe) {
+      toast.error("Thread contains prohibited language and cannot be posted.");
+      return;
+    }
+
     const authorName = demo.session?.name ?? "You";
     const authorId = demo.session?.id ?? "me";
     const postUuid = crypto.randomUUID();
@@ -109,6 +125,12 @@ function Detail() {
   const handleReply = async (index: number, thread: ThreadItem) => {
     const text = replyTexts[index]?.trim();
     if (!text) return;
+
+    const replySafety = checkContentSafety(text);
+    if (!replySafety.safe) {
+      toast.error("Reply contains prohibited language and cannot be posted.");
+      return;
+    }
 
     const authorName = demo.session?.name ?? "You";
     const authorId = demo.session?.id ?? "me";
@@ -266,13 +288,27 @@ function Detail() {
                     </span>
                   </button>
                   <div className="flex items-center gap-3">
-                    {t.author === (demo.session?.name ?? "You") && (
+                    {t.author === (demo.session?.name ?? "You") ? (
                       <button
                         onClick={() => handleDeleteThread(t)}
                         title="Delete thread"
                         className="text-muted-foreground transition-colors hover:text-destructive"
                       >
                         <Trash2 size={14} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          setReportTarget({
+                            type: "post",
+                            id: t.id || t.title,
+                            title: t.title,
+                          })
+                        }
+                        title="Report thread"
+                        className="text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <Flag size={13} />
                       </button>
                     )}
                     <button
@@ -297,7 +333,23 @@ function Detail() {
                       <ul className="space-y-3 pb-3 pl-4">
                         {t.replies.map((r, j) => (
                           <li key={j} className="border-l border-border pl-4">
-                            <p className="label-mono text-muted-foreground">{r.author}</p>
+                            <div className="flex items-center justify-between">
+                              <p className="label-mono text-muted-foreground">{r.author}</p>
+                              {r.author !== (demo.session?.name ?? "You") && (
+                                <button
+                                  onClick={() =>
+                                    setReportTarget({
+                                      type: "reply",
+                                      id: r.id || `${t.title}-${j}`,
+                                      title: `Reply by ${r.author}`,
+                                    })
+                                  }
+                                  className="label-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                  Report
+                                </button>
+                              )}
+                            </div>
                             <p className="mt-1 text-sm">{r.text}</p>
                           </li>
                         ))}
@@ -366,6 +418,94 @@ function Detail() {
           </ul>
         </aside>
       </div>
+
+      <AnimatePresence>
+        {reportTarget && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md border border-border bg-surface p-6 shadow-xl"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-xl font-semibold">Report Content</h3>
+                <button onClick={() => setReportTarget(null)} aria-label="Close report">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Reporting:{" "}
+                <span className="font-semibold text-foreground">{reportTarget.title}</span>
+              </p>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="label-mono text-xs text-muted-foreground block mb-1">
+                    Reason
+                  </label>
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-signal"
+                  >
+                    {REPORT_REASONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label-mono text-xs text-muted-foreground block mb-1">
+                    Additional details (optional)
+                  </label>
+                  <textarea
+                    value={reportDetails}
+                    onChange={(e) => setReportDetails(e.target.value)}
+                    placeholder="Describe what occurred…"
+                    rows={3}
+                    maxLength={1000}
+                    className="w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-signal"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setReportTarget(null)}
+                  className="btn-ghost !py-1.5 text-xs text-muted-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={submittingReport}
+                  onClick={async () => {
+                    setSubmittingReport(true);
+                    const res = await reportContent(
+                      reportTarget.type,
+                      reportTarget.id,
+                      reportReason,
+                      reportDetails,
+                    );
+                    setSubmittingReport(false);
+                    if (res.success) {
+                      toast.success("Thank you. Content report submitted.");
+                      setReportTarget(null);
+                    } else {
+                      toast.error(res.error || "Failed to submit report");
+                    }
+                  }}
+                  className="btn-signal !py-1.5 text-xs"
+                >
+                  {submittingReport ? "Submitting…" : "Submit report"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
