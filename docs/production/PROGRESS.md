@@ -1,30 +1,30 @@
 # CESIUM — PRODUCTION ROADMAP & PROGRESS TRACKER
 
-Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-17  
-**Current Phase**: Phase 9 — Icebreakers & Realtime Messaging (COMPLETED)  
-**Active Branch**: `phase-9-icebreakers-realtime`
+Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-18  
+**Current Phase**: Phase 10 — Micro-Communities & Threads (COMPLETED)  
+**Active Branch**: `phase-10-communities-threads`
 
 ---
 
 ## Phase Status Summary
 
-| Phase        | Title                                     |   Status    | Primary Artifact              |                                                        Quality Gate                                                        |
-| :----------- | :---------------------------------------- | :---------: | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------: |
-| **Phase 0**  | **Baseline & Quality Gates**              | **PASS** ✅ | `docs/production/phase-0.md`  |                               Quality gates operational; 8/8 E2E & 19/19 Unit tests passing                                |
-| **Phase 1**  | **Environment & Supabase Configuration**  | **PASS** ✅ | `docs/production/phase-1.md`  | Zod env validation active; typesafe Supabase client; 0 tsc errors (down from 69); 0 lint errors; 33/33 Unit & 8/8 E2E pass |
-| **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  |         3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass         |
-| **Phase 3**  | **Seed Data & Graph Relations**           | **PASS** ✅ | `docs/production/phase-3.md`  |    4 versioned migrations; 29 catalog interests; cross-domain bridges; symmetric traversal; 52/52 Vitest & 8/8 E2E pass    |
-| **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |    5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass    |
-| **Phase 5**  | **Profile & Constellation State**         | **PASS** ✅ | `docs/production/phase-5.md`  |     Profile settings modal; avatar upload; 3+ curated interest guard; node type toggling; 79/79 Vitest & 8/8 E2E pass      |
-| **Phase 6**  | **Deterministic Matching Engine**         | **PASS** ✅ | `docs/production/phase-6.md`  |    Jaccard base + style synergy + cross-domain bridges; bounded 0-100; 87/87 Vitest & 8/8 E2E pass; 0 tsc & lint errors    |
-| **Phase 7**  | **Uncommon Ground Discovery**             | **PASS** ✅ | `docs/production/phase-7.md`  |      Anchor analysis + serendipity scoring + UI perspective drawer; 98/98 Vitest & 8/8 E2E pass; 0 tsc & lint errors       |
-| **Phase 8**  | **Connections & Relationship Lifecycle**  | **PASS** ✅ | `docs/production/phase-8.md`  |    Transitions, pending inbox, request cancel, disconnect & gating; 108/108 Vitest & 8/8 E2E pass; 0 tsc & lint errors     |
-| **Phase 9**  | **Icebreakers & Realtime Messaging**      | **PASS** ✅ | `docs/production/phase-9.md`  | Bridge starters, direct conv RPC, Realtime publication & delivery status; 121/121 Vitest & 8/8 E2E pass; 0 tsc/lint errors |
-| **Phase 10** | Micro-Communities & Threads               |   PENDING   | `docs/production/phase-10.md` |                                                             —                                                              |
-| **Phase 11** | Safety, Blocking & Content Moderation     |   PENDING   | `docs/production/phase-11.md` |                                                             —                                                              |
-| **Phase 12** | Production Hardening, RLS & Security      |   PENDING   | `docs/production/phase-12.md` |                                                             —                                                              |
-| **Phase 13** | End-to-End Verification Suite             |   PENDING   | `docs/production/phase-13.md` |                                                             —                                                              |
-| **Phase 14** | Production Deployment & Release Readiness |   PENDING   | `docs/production/phase-14.md` |                                                             —                                                              |
+| Phase        | Title                                     |   Status    | Primary Artifact              |                                                         Quality Gate                                                         |
+| :----------- | :---------------------------------------- | :---------: | :---------------------------- | :--------------------------------------------------------------------------------------------------------------------------: |
+| **Phase 0**  | **Baseline & Quality Gates**              | **PASS** ✅ | `docs/production/phase-0.md`  |                                Quality gates operational; 8/8 E2E & 19/19 Unit tests passing                                 |
+| **Phase 1**  | **Environment & Supabase Configuration**  | **PASS** ✅ | `docs/production/phase-1.md`  |  Zod env validation active; typesafe Supabase client; 0 tsc errors (down from 69); 0 lint errors; 33/33 Unit & 8/8 E2E pass  |
+| **Phase 2**  | **Schema Migrations & Constraints**       | **PASS** ✅ | `docs/production/phase-2.md`  |          3 versioned migrations; all 16 tables RLS-hardened; storage bucket configured; 37/37 Vitest & 8/8 E2E pass          |
+| **Phase 3**  | **Seed Data & Graph Relations**           | **PASS** ✅ | `docs/production/phase-3.md`  |     4 versioned migrations; 29 catalog interests; cross-domain bridges; symmetric traversal; 52/52 Vitest & 8/8 E2E pass     |
+| **Phase 4**  | **Authentication & Onboarding Flow**      | **PASS** ✅ | `docs/production/phase-4.md`  |     5-step onboarding flow; handle validation; 3+ interest gate; route guards; session sync; 64/64 Vitest & 8/8 E2E pass     |
+| **Phase 5**  | **Profile & Constellation State**         | **PASS** ✅ | `docs/production/phase-5.md`  |      Profile settings modal; avatar upload; 3+ curated interest guard; node type toggling; 79/79 Vitest & 8/8 E2E pass       |
+| **Phase 6**  | **Deterministic Matching Engine**         | **PASS** ✅ | `docs/production/phase-6.md`  |     Jaccard base + style synergy + cross-domain bridges; bounded 0-100; 87/87 Vitest & 8/8 E2E pass; 0 tsc & lint errors     |
+| **Phase 7**  | **Uncommon Ground Discovery**             | **PASS** ✅ | `docs/production/phase-7.md`  |       Anchor analysis + serendipity scoring + UI perspective drawer; 98/98 Vitest & 8/8 E2E pass; 0 tsc & lint errors        |
+| **Phase 8**  | **Connections & Relationship Lifecycle**  | **PASS** ✅ | `docs/production/phase-8.md`  |     Transitions, pending inbox, request cancel, disconnect & gating; 108/108 Vitest & 8/8 E2E pass; 0 tsc & lint errors      |
+| **Phase 9**  | **Icebreakers & Realtime Messaging**      | **PASS** ✅ | `docs/production/phase-9.md`  |  Bridge starters, direct conv RPC, Realtime publication & delivery status; 121/121 Vitest & 8/8 E2E pass; 0 tsc/lint errors  |
+| **Phase 10** | **Micro-Communities & Threads**           | **PASS** ✅ | `docs/production/phase-10.md` | Micro-community creation, membership toggles, discussion threads & replies; 136/136 Vitest & 8/8 E2E pass; 0 tsc/lint errors |
+| **Phase 11** | Safety, Blocking & Content Moderation     |   PENDING   | `docs/production/phase-11.md` |                                                              —                                                               |
+| **Phase 12** | Production Hardening, RLS & Security      |   PENDING   | `docs/production/phase-12.md` |                                                              —                                                               |
+| **Phase 13** | End-to-End Verification Suite             |   PENDING   | `docs/production/phase-13.md` |                                                              —                                                               |
+| **Phase 14** | Production Deployment & Release Readiness |   PENDING   | `docs/production/phase-14.md` |                                                              —                                                               |
 
 ---
 
@@ -226,6 +226,26 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Configure `testTimeout: 15000` in `vitest.config.ts` to eliminate flakiness during multi-fallback network timeout tests.
 - [x] Expand test suite in `src/test/icebreakers.test.ts` to 15 comprehensive tests covering tailored icebreakers, bridges, uncommon ground anchors, validation, direct conversation resolution, offline messaging, and migration parity.
 - [x] Verify complete test suite execution (121/121 Vitest unit and integration tests passing across 12 files).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`npm run lint` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 10 Checklist
+
+- [x] Create additive migration `supabase/migrations/20261017000005_micro_communities_rpc.sql` with `rpc_create_community`, `rpc_create_community_post`, `rpc_create_community_reply`, and `rpc_delete_community_post`.
+- [x] Update TypeScript database definitions in `src/types/database.ts` with typed RPC signatures.
+- [x] Implement robust input validation in `src/services/communities.ts` (`validateCommunityInput`, `validatePostInput`, `validateReplyInput`) enforcing character lengths and trim bounds.
+- [x] Implement micro-community creation workflow enrolling creator as owner/admin.
+- [x] Implement community membership toggle (`joinCommunity` / `leaveCommunity`) with reactive state syncing.
+- [x] Implement discussion thread creation with title and rich body support.
+- [x] Implement discussion replies fetching and inline reply submission with real-time counters.
+- [x] Implement role-based thread deletion allowing post authors and community owners to moderate content.
+- [x] Update `src/routes/communities.$id.tsx` with thread body display, inline reply forms, and authorized delete buttons.
+- [x] Add comprehensive test suite in `src/test/communities-threads.test.ts` (15 tests) covering communities, memberships, threads, replies, validation, deletion permissions, and migration parity.
+- [x] Verify complete test suite execution (136/136 Vitest unit and integration tests passing across 13 files).
 - [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
 - [x] Verify zero ESLint errors (`npm run lint` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
