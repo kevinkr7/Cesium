@@ -1,12 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { communities, people } from "@/lib/data";
-import { setDemo, useDemo } from "@/lib/store";
+import { useDemo } from "@/lib/store";
 import { JoinButton } from "@/components/JoinButton";
-import { createCommunityThread } from "@/services/communities";
+import {
+  createCommunityThread,
+  createCommunityReply,
+  deleteCommunityThread,
+} from "@/services/communities";
 
 import { RequireAuth } from "@/components/RequireAuth";
 
@@ -30,13 +34,22 @@ export const Route = createFileRoute("/communities/$id")({
   ),
 });
 
+type ThreadItem = {
+  id?: string | undefined;
+  title: string;
+  content?: string | undefined;
+  author: string;
+  authorId?: string | undefined;
+  replies: { id?: string | undefined; author: string; text: string }[];
+};
+
 function Detail() {
   const { id } = Route.useParams();
   const demo = useDemo();
-  const [threads, setThreads] = useState<
-    { title: string; author: string; replies: { author: string; text: string }[] }[]
-  >([]);
+  const [threads, setThreads] = useState<ThreadItem[]>([]);
   const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [replyTexts, setReplyTexts] = useState<Record<number, string>>({});
   const [showNewThread, setShowNewThread] = useState(false);
   const [open, setOpen] = useState<number | null>(0);
 
@@ -53,7 +66,14 @@ function Detail() {
     );
   }
 
-  const allThreads = [...c.threads, ...threads];
+  const allThreads: ThreadItem[] = [
+    ...threads,
+    ...c.threads.map((t) => ({
+      title: t.title,
+      author: t.author,
+      replies: t.replies.map((r) => ({ author: r.author, text: r.text })),
+    })),
+  ];
   const members = people.filter((p) => c.memberIds.includes(p.id));
   const count = c.members + (demo.joined.includes(c.id) && !c.custom ? 1 : 0);
 
@@ -62,21 +82,73 @@ function Detail() {
     if (newTitle.trim().length < 3) return;
 
     const authorName = demo.session?.name ?? "You";
-    const newThread = {
+    const authorId = demo.session?.id ?? "me";
+    const postUuid = crypto.randomUUID();
+
+    const newThread: ThreadItem = {
+      id: postUuid,
       title: newTitle.trim(),
+      content: newContent.trim() || undefined,
       author: authorName,
+      authorId,
       replies: [],
     };
 
     setThreads((prev) => [newThread, ...prev]);
 
     if (demo.session?.id && !demo.session.demo) {
-      await createCommunityThread(c.id, demo.session.id, newTitle.trim());
+      await createCommunityThread(c.id, demo.session.id, newTitle.trim(), newContent.trim());
     }
 
     setNewTitle("");
+    setNewContent("");
     setShowNewThread(false);
     toast.success("Thread posted");
+  };
+
+  const handleReply = async (index: number, thread: ThreadItem) => {
+    const text = replyTexts[index]?.trim();
+    if (!text) return;
+
+    const authorName = demo.session?.name ?? "You";
+    const authorId = demo.session?.id ?? "me";
+    const replyUuid = crypto.randomUUID();
+
+    // Optimistically update thread replies
+    setThreads((prev) => {
+      const copy = [...prev];
+      const matchIdx = copy.findIndex((t) => t.title === thread.title);
+      if (matchIdx !== -1) {
+        copy[matchIdx] = {
+          ...copy[matchIdx]!,
+          replies: [...copy[matchIdx]!.replies, { id: replyUuid, author: authorName, text }],
+        };
+        return copy;
+      }
+      return [
+        {
+          ...thread,
+          replies: [...thread.replies, { id: replyUuid, author: authorName, text }],
+        },
+        ...prev,
+      ];
+    });
+
+    setReplyTexts((prev) => ({ ...prev, [index]: "" }));
+
+    if (thread.id && demo.session?.id && !demo.session.demo) {
+      await createCommunityReply(thread.id, demo.session.id, text);
+    }
+
+    toast.success("Reply added");
+  };
+
+  const handleDeleteThread = async (thread: ThreadItem) => {
+    setThreads((prev) => prev.filter((t) => t.title !== thread.title));
+    if (thread.id && demo.session?.id && !demo.session.demo) {
+      await deleteCommunityThread(thread.id, demo.session.id);
+    }
+    toast("Thread deleted");
   };
 
   return (
@@ -147,6 +219,15 @@ function Detail() {
                   <label htmlFor="thread-title">Start a discussion…</label>
                   <span className="line" />
                 </div>
+                <div className="mt-3">
+                  <textarea
+                    rows={2}
+                    value={newContent}
+                    onChange={(e) => setNewContent(e.target.value)}
+                    placeholder="Optional thoughts, questions, or context…"
+                    className="w-full border border-input bg-transparent p-2.5 text-sm outline-none focus:border-signal"
+                  />
+                </div>
                 <div className="mt-3 flex justify-end gap-2">
                   <button
                     type="button"
@@ -172,20 +253,36 @@ function Detail() {
           )}
           <ul className="divide-y divide-border border-y border-border">
             {allThreads.map((t, i) => (
-              <li key={t.title}>
-                <button
-                  onClick={() => setOpen(open === i ? null : i)}
-                  aria-expanded={open === i}
-                  className="flex w-full items-start justify-between gap-4 py-5 text-left"
-                >
-                  <span>
+              <li key={`${t.title}-${i}`}>
+                <div className="flex w-full items-start justify-between gap-4 py-5 text-left">
+                  <button
+                    onClick={() => setOpen(open === i ? null : i)}
+                    aria-expanded={open === i}
+                    className="flex-1 text-left"
+                  >
                     <span className="font-display text-xl font-semibold">{t.title}</span>
                     <span className="label-mono mt-1 block text-muted-foreground">
                       {t.author} · {t.replies.length} replies
                     </span>
-                  </span>
-                  <span className="label-mono text-signal">{open === i ? "−" : "+"}</span>
-                </button>
+                  </button>
+                  <div className="flex items-center gap-3">
+                    {t.author === (demo.session?.name ?? "You") && (
+                      <button
+                        onClick={() => handleDeleteThread(t)}
+                        title="Delete thread"
+                        className="text-muted-foreground transition-colors hover:text-destructive"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setOpen(open === i ? null : i)}
+                      className="label-mono text-signal"
+                    >
+                      {open === i ? "−" : "+"}
+                    </button>
+                  </div>
+                </div>
                 <AnimatePresence initial={false}>
                   {open === i && (
                     <motion.div
@@ -194,17 +291,43 @@ function Detail() {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <ul className="space-y-3 pb-6 pl-4">
+                      {t.content && (
+                        <p className="mb-4 pl-4 text-sm text-foreground/90">{t.content}</p>
+                      )}
+                      <ul className="space-y-3 pb-3 pl-4">
                         {t.replies.map((r, j) => (
                           <li key={j} className="border-l border-border pl-4">
                             <p className="label-mono text-muted-foreground">{r.author}</p>
-                            <p className="mt-1">{r.text}</p>
+                            <p className="mt-1 text-sm">{r.text}</p>
                           </li>
                         ))}
                         {!t.replies.length && (
                           <li className="text-sm text-muted-foreground">No replies yet.</li>
                         )}
                       </ul>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleReply(i, t);
+                        }}
+                        className="mb-4 flex items-center gap-2 pl-4"
+                      >
+                        <input
+                          value={replyTexts[i] ?? ""}
+                          onChange={(e) =>
+                            setReplyTexts((prev) => ({ ...prev, [i]: e.target.value }))
+                          }
+                          placeholder="Write a reply…"
+                          className="flex-1 border-b border-input bg-transparent py-1.5 text-sm outline-none focus:border-signal"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!replyTexts[i]?.trim()}
+                          className="btn-signal !px-3 !py-1 text-xs"
+                        >
+                          Reply
+                        </button>
+                      </form>
                     </motion.div>
                   )}
                 </AnimatePresence>

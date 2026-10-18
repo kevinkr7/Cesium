@@ -449,6 +449,22 @@ export type Database = {
         Args: { p_conversation_id: string };
         Returns: { success: boolean };
       };
+      rpc_create_community: {
+        Args: { p_name: string; p_description: string; p_topics?: string[] };
+        Returns: { success: boolean; community_id: string; slug: string; name: string };
+      };
+      rpc_create_community_post: {
+        Args: { p_community_id: string; p_title: string; p_content?: string };
+        Returns: { success: boolean; post_id: string };
+      };
+      rpc_create_community_reply: {
+        Args: { p_post_id: string; p_text: string };
+        Returns: { success: boolean; reply_id: string };
+      };
+      rpc_delete_community_post: {
+        Args: { p_post_id: string };
+        Returns: { success: boolean };
+      };
       rpc_get_discovery: {
         Args: {
           p_filter?: string;
