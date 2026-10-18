@@ -10,9 +10,11 @@ import {
   sendChatMessage,
   subscribeToConversationMessages,
   fetchConversationMessages,
+  getOrCreateDirectConversation,
+  markConversationRead,
 } from "@/services/messaging";
 import { respondToConnectionRequest, removeConnection } from "@/services/connections";
-
+import { findCrossDomainBridges } from "@/services/discovery";
 import { RequireAuth } from "@/components/RequireAuth";
 
 export const Route = createFileRoute("/messages")({
@@ -49,6 +51,7 @@ function Messages() {
   const contacts = people.filter((p) => demo.connections[p.id] === "connected");
   const pendingContacts = people.filter((p) => demo.connections[p.id] === "pending");
   const [active, setActive] = useState<string | undefined>(c);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -71,13 +74,41 @@ function Messages() {
     () => (person ? shared(person.interests, mine) : []),
     [person, mine],
   );
-  const activeStarters = useMemo(() => getIcebreakerStarters(sharedInterests), [sharedInterests]);
+  const bridges = useMemo(
+    () => (person ? findCrossDomainBridges(mine, person.interests) : []),
+    [person, mine],
+  );
+  const activeStarters = useMemo(
+    () => getIcebreakerStarters(sharedInterests, { bridges }),
+    [sharedInterests, bridges],
+  );
 
-  // Realtime subscription when an active conversation is selected
+  // Resolve direct conversation ID for real sessions
+  useEffect(() => {
+    if (!active || !demo.session?.id || demo.session.demo) {
+      setActiveConvId(active ? `conv-${active}` : null);
+      return;
+    }
+
+    let mounted = true;
+    getOrCreateDirectConversation(active).then((res) => {
+      if (mounted && res.conversationId) {
+        setActiveConvId(res.conversationId);
+        markConversationRead(res.conversationId);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [active, demo.session?.id, demo.session?.demo]);
+
+  // Realtime subscription and message history synchronization
   useEffect(() => {
     if (!active || !demo.session?.id || demo.session.demo) return;
+    const targetConvId = activeConvId || `conv-${active}`;
 
-    fetchConversationMessages(active, demo.session.id).then((savedMsgs) => {
+    fetchConversationMessages(targetConvId, demo.session.id).then((savedMsgs) => {
       if (savedMsgs.length > 0) {
         setDemo((s) => ({
           messages: {
@@ -87,6 +118,7 @@ function Messages() {
               from: m.from,
               text: m.text,
               at: m.at,
+              status: "sent" as const,
             })),
           },
         }));
@@ -94,23 +126,32 @@ function Messages() {
     });
 
     const unsubscribe = subscribeToConversationMessages(
-      active,
+      targetConvId,
       (newMsg) => {
         setDemo((s) => ({
           messages: {
             ...s.messages,
             [active]: [
               ...(s.messages[active] ?? []).filter((m) => m.id !== newMsg.id),
-              { id: newMsg.id, from: newMsg.from, text: newMsg.text, at: newMsg.at },
+              {
+                id: newMsg.id,
+                from: newMsg.from,
+                text: newMsg.text,
+                at: newMsg.at,
+                status: "sent" as const,
+              },
             ],
           },
         }));
+        if (targetConvId) {
+          markConversationRead(targetConvId);
+        }
       },
       demo.session.id,
     );
 
     return () => unsubscribe();
-  }, [active, demo.session?.id, demo.session?.demo]);
+  }, [active, activeConvId, demo.session?.id, demo.session?.demo]);
 
   const send = async () => {
     const v = text.trim();
@@ -118,17 +159,42 @@ function Messages() {
     const id = active;
     const msgId = crypto.randomUUID();
 
-    // Optimistically update
+    // Optimistically update message list with 'sending' status
     setDemo((s) => ({
       messages: {
         ...s.messages,
-        [id]: [...(s.messages[id] ?? []), { id: msgId, from: "me", text: v, at: Date.now() }],
+        [id]: [
+          ...(s.messages[id] ?? []),
+          { id: msgId, from: "me", text: v, at: Date.now(), status: "sending" as const },
+        ],
       },
     }));
     setText("");
 
     // Backend dispatch
-    await sendChatMessage(id, v);
+    const targetConvId = activeConvId || id;
+    const res = await sendChatMessage(targetConvId, v);
+
+    if (res.success) {
+      setDemo((s) => ({
+        messages: {
+          ...s.messages,
+          [id]: (s.messages[id] ?? []).map((m) =>
+            m.id === msgId ? { ...m, status: "sent" as const } : m,
+          ),
+        },
+      }));
+    } else {
+      setDemo((s) => ({
+        messages: {
+          ...s.messages,
+          [id]: (s.messages[id] ?? []).map((m) =>
+            m.id === msgId ? { ...m, status: "error" as const } : m,
+          ),
+        },
+      }));
+      toast.error(res.error ?? "Failed to deliver message");
+    }
 
     // If demo or synthetic partner, provide simulated response
     if (demo.session?.demo || !demo.session) {
@@ -145,6 +211,7 @@ function Messages() {
                 from: "them",
                 text: replies[Math.floor(Math.random() * replies.length)] ?? "Ha, okay.",
                 at: Date.now(),
+                status: "sent" as const,
               },
             ],
           },
@@ -306,7 +373,16 @@ function Messages() {
                       >
                         {m.text}
                       </p>
-                      <p className="label-mono mt-1 text-muted-foreground">{fmt(m.at)}</p>
+                      <p className="label-mono mt-1 flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
+                        <span>{fmt(m.at)}</span>
+                        {m.from === "me" && (
+                          <span className="text-[10px]">
+                            {m.status === "sending" && "• sending"}
+                            {m.status === "error" && "• failed"}
+                            {(!m.status || m.status === "sent") && "✓"}
+                          </span>
+                        )}
+                      </p>
                     </motion.div>
                   ))}
                   {typing && (
@@ -372,6 +448,26 @@ function Messages() {
                   </span>
                 ))}
               </div>
+              {bridges.length > 0 && (
+                <>
+                  <p className="label-mono mt-6 text-muted-foreground">Cross-domain bridges</p>
+                  <div className="mt-2 space-y-1.5">
+                    {bridges.map((b) => (
+                      <div
+                        key={`${b.from}-${b.to}`}
+                        className="rounded border border-border/70 bg-surface/50 p-2 text-xs"
+                      >
+                        <div className="flex items-center gap-1 font-medium text-foreground">
+                          <span>{b.from}</span>
+                          <span className="text-muted-foreground">↔</span>
+                          <span>{b.to}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-muted-foreground">{b.explanation}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               <div className="mt-8 border-t border-border pt-4">
                 <button
                   onClick={async () => {
