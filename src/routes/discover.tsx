@@ -51,6 +51,7 @@ function Discover() {
   const [f, setF] = useState<string | null>(null);
   const [open, setOpen] = useState<DiscoveryCandidate | null>(null);
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([]);
+  const [incomingSet, setIncomingSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const mine = [...demo.interests, ...demo.niche];
   const mineKey = demo.interests.join(",") + "::" + demo.niche.join(",");
@@ -63,13 +64,16 @@ function Discover() {
     Promise.all([fetchConnections(userId), fetchPendingRequests(userId)])
       .then(([conns, pending]) => {
         if (!mounted) return;
+        const incomingIds = new Set<string>();
         const pendingMap: Record<string, "pending"> = {};
         for (const p of pending.incoming) {
           pendingMap[p.userId] = "pending";
+          incomingIds.add(p.userId);
         }
         for (const p of pending.outgoing) {
           pendingMap[p.userId] = "pending";
         }
+        setIncomingSet(incomingIds);
         setDemo((s) => ({
           connections: { ...s.connections, ...conns, ...pendingMap },
         }));
@@ -88,9 +92,20 @@ function Discover() {
       primaryInterests: demo.interests.slice(0, 3),
       myStyles: demo.styles,
       blockedUserIds: demo.blockedUsers || [],
+      currentUserId: demo.session?.id,
+      currentUserHandle: demo.profile?.handle,
+      currentUserEmail: demo.session?.email,
     }).then((data) => {
       if (active) {
-        setCandidates(data);
+        // Strict defense-in-depth: Never show self in discover feed
+        const selfId = demo.session?.id;
+        const selfHandle = demo.profile?.handle?.toLowerCase().replace(/^@/, "");
+        const filtered = data.filter((c) => {
+          if (selfId && c.id === selfId) return false;
+          if (selfHandle && c.handle.toLowerCase().replace(/^@/, "") === selfHandle) return false;
+          return true;
+        });
+        setCandidates(filtered);
         setLoading(false);
       }
     });
@@ -107,6 +122,9 @@ function Discover() {
     demo.niche,
     demo.styles,
     demo.blockedUsers,
+    demo.session?.id,
+    demo.session?.email,
+    demo.profile?.handle,
   ]);
 
   return (
@@ -196,6 +214,7 @@ function Discover() {
                     mine={mine}
                     big={!!p.featured && !f && !q}
                     i={i}
+                    isIncoming={incomingSet.has(p.id)}
                     onOpen={() => setOpen(p)}
                   />
                 ))}
@@ -205,29 +224,36 @@ function Discover() {
         </div>
       </div>
       <AnimatePresence>
-        {open && <ProfileSheet p={open} mine={mine} onClose={() => setOpen(null)} />}
+        {open && (
+          <ProfileSheet
+            p={open}
+            mine={mine}
+            isIncoming={incomingSet.has(open.id)}
+            onClose={() => setOpen(null)}
+          />
+        )}
       </AnimatePresence>
     </section>
   );
 }
 
-function ConnectButton({ id, name }: { id: string; name: string }) {
+function ConnectButton({
+  id,
+  name,
+  isIncoming,
+}: {
+  id: string;
+  name: string;
+  isIncoming?: boolean | undefined;
+}) {
   const { connections } = useDemo();
   const st = connections[id];
 
   const request = async () => {
     setDemo((s) => ({ connections: { ...s.connections, [id]: "pending" } }));
     await sendConnectionRequest(id);
-    toast(`Request sent to ${name.split(" ")[0]}`, {
-      description: "Connection request logged and sent.",
-      action: {
-        label: "Simulate accept",
-        onClick: async () => {
-          await respondToConnectionRequest(id, "accepted");
-          setDemo((s) => ({ connections: { ...s.connections, [id]: "connected" } }));
-          toast.success(`You are now connected with ${name.split(" ")[0]}`);
-        },
-      },
+    toast.success(`Request sent to ${name.split(" ")[0]}`, {
+      description: "Connection request sent. You will be alerted when they accept.",
     });
   };
 
@@ -240,19 +266,42 @@ function ConnectButton({ id, name }: { id: string; name: string }) {
   }
 
   if (st === "pending") {
+    if (isIncoming) {
+      return (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              await respondToConnectionRequest(id, "accepted");
+              setDemo((s) => ({ connections: { ...s.connections, [id]: "connected" } }));
+              toast.success(`Connected with ${name}`);
+            }}
+            className="btn-signal !px-3 !py-1.5 text-xs font-medium"
+            title="Accept connection request"
+          >
+            Accept
+          </button>
+          <button
+            onClick={async () => {
+              await respondToConnectionRequest(id, "declined");
+              setDemo((s) => {
+                const updated = { ...s.connections };
+                delete updated[id];
+                return { connections: updated };
+              });
+              toast("Request declined");
+            }}
+            className="btn-ghost !px-3 !py-1.5 text-xs text-muted-foreground hover:text-destructive"
+            title="Decline request"
+          >
+            Decline
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-2">
-        <button
-          onClick={async () => {
-            await respondToConnectionRequest(id, "accepted");
-            setDemo((s) => ({ connections: { ...s.connections, [id]: "connected" } }));
-            toast.success(`Connected with ${name}`);
-          }}
-          className="btn-ghost !px-3 !py-2 text-xs text-muted-foreground"
-          title="Pending connection approval"
-        >
-          Pending… <span className="label-mono text-signal">accept</span>
-        </button>
+        <span className="label-mono text-xs text-muted-foreground">Pending…</span>
         <button
           onClick={async () => {
             await cancelConnectionRequest(id);
@@ -284,12 +333,14 @@ function ProfileCard({
   mine,
   big,
   i,
+  isIncoming,
   onOpen,
 }: {
   p: DiscoveryCandidate;
   mine: string[];
   big: boolean;
   i: number;
+  isIncoming?: boolean | undefined;
   onOpen: () => void;
 }) {
   const s = p.sharedInterests.length > 0 ? p.sharedInterests : shared(p.interests, mine);
@@ -365,7 +416,7 @@ function ProfileCard({
         )}
         <p className="mt-4 border-l border-signal pl-3 text-sm">{p.why}</p>
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
-          <ConnectButton id={p.id} name={p.name} />
+          <ConnectButton id={p.id} name={p.name} isIncoming={isIncoming} />
           <button
             onClick={onOpen}
             className="label-mono ml-auto inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
@@ -381,10 +432,12 @@ function ProfileCard({
 function ProfileSheet({
   p,
   mine,
+  isIncoming,
   onClose,
 }: {
   p: DiscoveryCandidate;
   mine: string[];
+  isIncoming?: boolean | undefined;
   onClose: () => void;
 }) {
   const demo = useDemo();
@@ -487,7 +540,7 @@ function ProfileSheet({
           </div>
         )}
         <div className="mt-auto pt-8">
-          <ConnectButton id={p.id} name={p.name} />
+          <ConnectButton id={p.id} name={p.name} isIncoming={isIncoming} />
           {(demo.connections[p.id] === "connected" || p.connectionStatus === "connected") && (
             <button
               onClick={async () => {

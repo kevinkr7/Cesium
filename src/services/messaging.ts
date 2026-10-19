@@ -218,24 +218,44 @@ export async function fetchConversationMessages(
   // If conversationId is a mock format (conv-...)
   if (conversationId.startsWith("conv-")) return [];
 
-  const { data, error } = await sb
-    .from("messages")
-    .select("id, conversation_id, sender_id, body, created_at")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
-    .limit(100);
+  let targetConvId = conversationId;
+  try {
+    const { data: conv } = await sb
+      .from("conversations")
+      .select("id")
+      .eq("id", conversationId)
+      .maybeSingle();
 
-  if (error || !data) return [];
+    if (!conv?.id) {
+      const res = await getOrCreateDirectConversation(conversationId);
+      if (res.conversationId && !res.conversationId.startsWith("conv-")) {
+        targetConvId = res.conversationId;
+      } else {
+        return [];
+      }
+    }
 
-  return data.map((m) => ({
-    id: m.id,
-    conversationId: m.conversation_id,
-    senderId: m.sender_id,
-    from: m.sender_id === currentUserId ? "me" : "them",
-    text: m.body,
-    at: new Date(m.created_at).getTime(),
-    status: "sent",
-  }));
+    const { data, error } = await sb
+      .from("messages")
+      .select("id, conversation_id, sender_id, body, created_at")
+      .eq("conversation_id", targetConvId)
+      .order("created_at", { ascending: true })
+      .limit(100);
+
+    if (error || !data) return [];
+
+    return data.map((m) => ({
+      id: m.id,
+      conversationId: m.conversation_id,
+      senderId: m.sender_id,
+      from: m.sender_id === currentUserId ? "me" : "them",
+      text: m.body,
+      at: new Date(m.created_at).getTime(),
+      status: "sent",
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -259,17 +279,26 @@ export async function sendChatMessage(
 
   let targetConvId = conversationIdOrPeerId;
 
-  // UUID regex check: if not standard UUID format, resolve as peer ID
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    conversationIdOrPeerId,
-  );
+  if (!conversationIdOrPeerId.startsWith("conv-")) {
+    try {
+      const { data: conv } = await sb
+        .from("conversations")
+        .select("id")
+        .eq("id", conversationIdOrPeerId)
+        .maybeSingle();
 
-  if (!isUuid && !conversationIdOrPeerId.startsWith("conv-")) {
-    const res = await getOrCreateDirectConversation(conversationIdOrPeerId);
-    if (!res.conversationId) {
-      return { success: false, error: res.error ?? "Could not resolve conversation" };
+      if (!conv?.id) {
+        // It's a peer user ID! Resolve real direct bilateral conversation
+        const res = await getOrCreateDirectConversation(conversationIdOrPeerId);
+        if (res.conversationId && !res.conversationId.startsWith("conv-")) {
+          targetConvId = res.conversationId;
+        } else {
+          return { success: false, error: res.error ?? "Could not resolve conversation" };
+        }
+      }
+    } catch {
+      // Continue with targetConvId
     }
-    targetConvId = res.conversationId;
   }
 
   // If in mock or offline conv- format, return optimistic success

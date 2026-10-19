@@ -30,6 +30,7 @@ export type DemoState = {
   custom: Community[];
   messages: Record<string, Msg[]>;
   blockedUsers: string[];
+  unreadNotificationCount: number;
 };
 
 const KEY = "cesium-demo-v1";
@@ -47,6 +48,7 @@ const defaults: DemoState = {
   joined: ["2am-builders"],
   custom: [],
   blockedUsers: [],
+  unreadNotificationCount: 0,
   messages: {
     mira: [
       {
@@ -137,8 +139,7 @@ function load() {
         (meta["name"] as string) ||
         (meta["display_name"] as string) ||
         (u.email?.split("@")[0] ?? "Visitor");
-      const avatar =
-        (meta["avatar_url"] as string) || (meta["picture"] as string) || undefined;
+      const avatar = (meta["avatar_url"] as string) || (meta["picture"] as string) || undefined;
       return { name, avatar };
     };
 

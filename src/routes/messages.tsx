@@ -223,27 +223,35 @@ function Messages() {
     };
   }, [active, demo.session?.id, demo.session?.demo]);
 
-  // Realtime subscription and message history synchronization
+  // Realtime subscription and message history synchronization with polling fallback
   useEffect(() => {
-    if (!active || !demo.session?.id || demo.session.demo) return;
-    const targetConvId = activeConvId || `conv-${active}`;
+    const currentUserId = demo.session?.id;
+    if (!active || !currentUserId || demo.session?.demo) return;
+    const targetConvId = activeConvId || active;
 
-    fetchConversationMessages(targetConvId, demo.session.id).then((savedMsgs) => {
-      if (savedMsgs.length > 0) {
-        setDemo((s) => ({
-          messages: {
-            ...s.messages,
-            [active]: savedMsgs.map((m) => ({
-              id: m.id,
-              from: m.from,
-              text: m.text,
-              at: m.at,
-              status: "sent" as const,
-            })),
-          },
-        }));
-      }
-    });
+    const syncMessages = () => {
+      fetchConversationMessages(targetConvId, currentUserId).then((savedMsgs) => {
+        if (savedMsgs.length > 0) {
+          setDemo((s) => ({
+            messages: {
+              ...s.messages,
+              [active]: savedMsgs.map((m) => ({
+                id: m.id,
+                from: m.from,
+                text: m.text,
+                at: m.at,
+                status: "sent" as const,
+              })),
+            },
+          }));
+        }
+      });
+    };
+
+    syncMessages();
+
+    // 3-second heartbeat sync ensures instant bi-directional message delivery even across reconnections
+    const pollTimer = setInterval(syncMessages, 3000);
 
     const unsubscribe = subscribeToConversationMessages(
       targetConvId,
@@ -267,10 +275,13 @@ function Messages() {
           markConversationRead(targetConvId);
         }
       },
-      demo.session.id,
+      currentUserId,
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearInterval(pollTimer);
+      unsubscribe();
+    };
   }, [active, activeConvId, demo.session?.id, demo.session?.demo]);
 
   const send = async () => {
@@ -291,9 +302,17 @@ function Messages() {
     }));
     setText("");
 
-    // Backend dispatch
-    const targetConvId = activeConvId || id;
-    const res = await sendChatMessage(targetConvId, v);
+    // Backend dispatch: ensure real conversation ID is acquired
+    let targetConvId = activeConvId;
+    if (!targetConvId || targetConvId.startsWith("conv-")) {
+      const convRes = await getOrCreateDirectConversation(id);
+      if (convRes.conversationId && !convRes.conversationId.startsWith("conv-")) {
+        targetConvId = convRes.conversationId;
+        setActiveConvId(targetConvId);
+      }
+    }
+
+    const res = await sendChatMessage(targetConvId || id, v);
 
     if (res.success) {
       setDemo((s) => ({

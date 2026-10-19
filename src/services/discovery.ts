@@ -401,6 +401,9 @@ export async function fetchDiscoveryPeople(
     primaryInterests?: string[] | undefined;
     myStyles?: string[] | string | undefined;
     blockedUserIds?: string[] | undefined;
+    currentUserId?: string | undefined;
+    currentUserHandle?: string | undefined;
+    currentUserEmail?: string | undefined;
   },
 ): Promise<DiscoveryCandidate[]> {
   const cleanQuery = searchQuery ? sanitizeSearchQuery(searchQuery) : "";
@@ -412,7 +415,9 @@ export async function fetchDiscoveryPeople(
       const {
         data: { session: authSession },
       } = await sb.auth.getSession();
-      const currentUserId = authSession?.user?.id;
+      const authUserId = authSession?.user?.id;
+      const effectiveUserId = options?.currentUserId || authUserId;
+      const effectiveHandle = options?.currentUserHandle?.toLowerCase().replace(/^@/, "");
 
       // 2. Fetch candidates from rpc_get_discovery with 5s timeout
       const rpcPromise = sb.rpc("rpc_get_discovery", {
@@ -454,13 +459,16 @@ export async function fetchDiscoveryPeople(
       ]);
 
       const seenIds = new Set<string>();
-      if (currentUserId) seenIds.add(currentUserId);
+      if (effectiveUserId) seenIds.add(effectiveUserId);
+      if (authUserId) seenIds.add(authUserId);
       const candidates: DiscoveryCandidate[] = [];
 
       // Add RPC results if available
       if (rpcRes && !rpcRes.error && rpcRes.data && rpcRes.data.length > 0) {
         for (const r of rpcRes.data) {
           if (seenIds.has(r.id)) continue;
+          if (effectiveHandle && r.handle?.toLowerCase().replace(/^@/, "") === effectiveHandle)
+            continue;
           seenIds.add(r.id);
 
           const uncommonGround = analyzeUncommonGround(myInterests, r.interests || []);
@@ -491,6 +499,8 @@ export async function fetchDiscoveryPeople(
       if (profilesRes && !profilesRes.error && profilesRes.data && profilesRes.data.length > 0) {
         for (const rp of profilesRes.data) {
           if (seenIds.has(rp.id)) continue;
+          if (effectiveHandle && rp.handle?.toLowerCase().replace(/^@/, "") === effectiveHandle)
+            continue;
           seenIds.add(rp.id);
 
           const rawInterests =
@@ -635,6 +645,13 @@ export async function fetchDiscoveryPeople(
       };
     })
     .filter((p) => {
+      if (options?.currentUserId && p.id === options.currentUserId) return false;
+      if (
+        options?.currentUserHandle &&
+        p.handle.toLowerCase().replace(/^@/, "") ===
+          options.currentUserHandle.toLowerCase().replace(/^@/, "")
+      )
+        return false;
       if (options?.blockedUserIds && options.blockedUserIds.includes(p.id)) return false;
       if (cleanQuery) {
         const q = cleanQuery.toLowerCase();
