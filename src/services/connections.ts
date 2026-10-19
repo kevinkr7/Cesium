@@ -23,6 +23,11 @@ export type PendingConnectionRequest = {
   direction: "incoming" | "outgoing";
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(str: string | undefined | null): boolean {
+  return !!str && UUID_REGEX.test(str);
+}
+
 async function withTimeout<T>(promise: PromiseLike<T>, ms = 1500): Promise<T | null> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<null>((resolve) => {
@@ -47,11 +52,21 @@ export async function sendConnectionRequest(
   }
 
   const sb = getSupabase();
-  if (!sb || targetUserId.startsWith("demo-") || currentUserId === "demo") {
+  if (
+    !sb ||
+    !isUuid(targetUserId) ||
+    targetUserId.startsWith("demo-") ||
+    currentUserId === "demo"
+  ) {
     return { success: true, status: "pending", error: null };
   }
 
   try {
+    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
+    if (effectiveUserId && targetUserId === effectiveUserId) {
+      return { success: false, status: "none", error: "Cannot connect to self" };
+    }
+
     const res = await withTimeout(
       sb.rpc("rpc_send_connection_request", {
         p_target_user_id: targetUserId,
@@ -59,21 +74,69 @@ export async function sendConnectionRequest(
       5000,
     );
 
-    if (!res) {
-      // Timeout fallback
+    if (res && !res.error && res.data) {
+      const data = res.data as { success?: boolean; status?: string } | null;
+      if (data?.success) {
+        return {
+          success: true,
+          status: (data.status as ConnectionStatus) ?? "pending",
+          error: null,
+        };
+      }
+    }
+
+    // Resilient fallback: direct table insert/upsert if RPC is unmigrated or errored
+    if (effectiveUserId && isUuid(effectiveUserId) && isUuid(targetUserId)) {
+      const { data: existingConn } = await sb
+        .from("connections")
+        .select("id, status")
+        .or(
+          `and(requester_id.eq.${effectiveUserId},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${effectiveUserId})`,
+        )
+        .maybeSingle();
+
+      let connId = existingConn?.id;
+      if (existingConn) {
+        if (existingConn.status === "accepted") {
+          return { success: true, status: "accepted", error: null };
+        }
+        await sb
+          .from("connections")
+          .update({ requester_id: effectiveUserId, addressee_id: targetUserId, status: "pending" })
+          .eq("id", existingConn.id);
+      } else {
+        const { data: newConn, error: insertErr } = await sb
+          .from("connections")
+          .insert({
+            requester_id: effectiveUserId,
+            addressee_id: targetUserId,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (insertErr) {
+          return { success: false, status: "none", error: insertErr.message };
+        }
+        connId = newConn?.id;
+      }
+
+      // Also ensure realtime alert notification is recorded for addressee
+      await sb.from("notifications").insert({
+        user_id: targetUserId,
+        type: "connection_request",
+        title: "New connection request",
+        payload: { requester_id: effectiveUserId, connection_id: connId },
+        read: false,
+      });
+
       return { success: true, status: "pending", error: null };
     }
 
-    if (res.error) {
+    if (res?.error) {
       return { success: false, status: "none", error: res.error.message };
     }
-
-    const data = res.data as { success?: boolean; status?: string } | null;
-    return {
-      success: Boolean(data?.success),
-      status: (data?.status as ConnectionStatus) ?? "pending",
-      error: null,
-    };
+    return { success: true, status: "pending", error: null };
   } catch (err) {
     return {
       success: false,
@@ -92,7 +155,12 @@ export async function respondToConnectionRequest(
   currentUserId?: string,
 ): Promise<{ success: boolean; error: string | null }> {
   const sb = getSupabase();
-  if (!sb || connectionIdOrUserId.startsWith("demo-") || currentUserId === "demo") {
+  if (
+    !sb ||
+    !isUuid(connectionIdOrUserId) ||
+    connectionIdOrUserId.startsWith("demo-") ||
+    currentUserId === "demo"
+  ) {
     return { success: true, error: null };
   }
 
@@ -123,11 +191,41 @@ export async function respondToConnectionRequest(
       5000,
     );
 
-    if (!res) return { success: true, error: null };
-    if (res.error) return { success: false, error: res.error.message };
+    if (res && !res.error && (res.data as { success?: boolean } | null)?.success) {
+      return { success: true, error: null };
+    }
 
-    const data = res.data as { success?: boolean } | null;
-    return { success: Boolean(data?.success), error: null };
+    // Direct table fallback: update connection row directly
+    const { error: updErr } = await sb
+      .from("connections")
+      .update({ status: newStatus })
+      .eq("id", connectionId);
+
+    if (updErr) {
+      return { success: false, error: updErr.message };
+    }
+
+    if (newStatus === "accepted" && effectiveUserId) {
+      const { data: conn } = await sb
+        .from("connections")
+        .select("requester_id, addressee_id")
+        .eq("id", connectionId)
+        .maybeSingle();
+
+      if (conn) {
+        const otherId =
+          conn.requester_id === effectiveUserId ? conn.addressee_id : conn.requester_id;
+        await sb.from("notifications").insert({
+          user_id: otherId,
+          type: "connection_accepted",
+          title: "Connection accepted",
+          payload: { responder_id: effectiveUserId, connection_id: connectionId },
+          read: false,
+        });
+      }
+    }
+
+    return { success: true, error: null };
   } catch (err) {
     return {
       success: false,
@@ -144,7 +242,12 @@ export async function cancelConnectionRequest(
   currentUserId?: string,
 ): Promise<{ success: boolean; error: string | null }> {
   const sb = getSupabase();
-  if (!sb || connectionIdOrUserId.startsWith("demo-") || currentUserId === "demo") {
+  if (
+    !sb ||
+    !isUuid(connectionIdOrUserId) ||
+    connectionIdOrUserId.startsWith("demo-") ||
+    currentUserId === "demo"
+  ) {
     return { success: true, error: null };
   }
 
@@ -179,7 +282,12 @@ export async function removeConnection(
   currentUserId?: string,
 ): Promise<{ success: boolean; error: string | null }> {
   const sb = getSupabase();
-  if (!sb || connectionIdOrUserId.startsWith("demo-") || currentUserId === "demo") {
+  if (
+    !sb ||
+    !isUuid(connectionIdOrUserId) ||
+    connectionIdOrUserId.startsWith("demo-") ||
+    currentUserId === "demo"
+  ) {
     return { success: true, error: null };
   }
 
@@ -215,7 +323,7 @@ export async function fetchConnections(
   currentUserId: string,
 ): Promise<Record<string, "pending" | "connected">> {
   const sb = getSupabase();
-  if (!sb || currentUserId === "demo") return {};
+  if (!sb || currentUserId === "demo" || !isUuid(currentUserId)) return {};
 
   try {
     const { data, error } = await sb
@@ -249,7 +357,7 @@ export async function fetchPendingRequests(
   currentUserId: string,
 ): Promise<{ incoming: PendingConnectionRequest[]; outgoing: PendingConnectionRequest[] }> {
   const sb = getSupabase();
-  if (!sb || currentUserId === "demo") {
+  if (!sb || currentUserId === "demo" || !isUuid(currentUserId)) {
     return { incoming: [], outgoing: [] };
   }
 
@@ -269,11 +377,22 @@ export async function fetchPendingRequests(
       const isIncoming = r.addressee_id === currentUserId;
       const otherId = isIncoming ? r.requester_id : r.addressee_id;
 
-      const { data: profile } = await sb
-        .from("profiles")
-        .select("id, display_name, handle, city, avatar_path")
-        .eq("id", otherId)
-        .maybeSingle();
+      let profile: {
+        id: string;
+        display_name: string;
+        handle: string;
+        city?: string | null;
+        avatar_path?: string | null;
+      } | null = null;
+
+      if (isUuid(otherId)) {
+        const { data: p } = await sb
+          .from("profiles")
+          .select("id, display_name, handle, city, avatar_path")
+          .eq("id", otherId)
+          .maybeSingle();
+        profile = p;
+      }
 
       const item: PendingConnectionRequest = {
         id: r.id,

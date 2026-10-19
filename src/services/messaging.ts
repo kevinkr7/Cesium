@@ -1,6 +1,11 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { sanitizeMessageBody } from "@/lib/security";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(str: string | undefined | null): boolean {
+  return !!str && UUID_REGEX.test(str);
+}
+
 export type RealtimeMessage = {
   id: string;
   conversationId: string;
@@ -213,10 +218,7 @@ export async function fetchConversationMessages(
   currentUserId: string,
 ): Promise<RealtimeMessage[]> {
   const sb = getSupabase();
-  if (!sb) return [];
-
-  // If conversationId is a mock format (conv-...)
-  if (conversationId.startsWith("conv-")) return [];
+  if (!sb || !isUuid(conversationId) || !isUuid(currentUserId)) return [];
 
   let targetConvId = conversationId;
   try {
@@ -228,7 +230,7 @@ export async function fetchConversationMessages(
 
     if (!conv?.id) {
       const res = await getOrCreateDirectConversation(conversationId);
-      if (res.conversationId && !res.conversationId.startsWith("conv-")) {
+      if (res.conversationId && isUuid(res.conversationId)) {
         targetConvId = res.conversationId;
       } else {
         return [];
@@ -273,36 +275,34 @@ export async function sendChatMessage(
   }
 
   const sb = getSupabase();
-  if (!sb) {
+  if (!sb || !isUuid(conversationIdOrPeerId)) {
     return { success: true, messageId: crypto.randomUUID(), error: null };
   }
 
   let targetConvId = conversationIdOrPeerId;
 
-  if (!conversationIdOrPeerId.startsWith("conv-")) {
-    try {
-      const { data: conv } = await sb
-        .from("conversations")
-        .select("id")
-        .eq("id", conversationIdOrPeerId)
-        .maybeSingle();
+  try {
+    const { data: conv } = await sb
+      .from("conversations")
+      .select("id")
+      .eq("id", conversationIdOrPeerId)
+      .maybeSingle();
 
-      if (!conv?.id) {
-        // It's a peer user ID! Resolve real direct bilateral conversation
-        const res = await getOrCreateDirectConversation(conversationIdOrPeerId);
-        if (res.conversationId && !res.conversationId.startsWith("conv-")) {
-          targetConvId = res.conversationId;
-        } else {
-          return { success: false, error: res.error ?? "Could not resolve conversation" };
-        }
+    if (!conv?.id) {
+      // It's a peer user ID! Resolve real direct bilateral conversation
+      const res = await getOrCreateDirectConversation(conversationIdOrPeerId);
+      if (res.conversationId && isUuid(res.conversationId)) {
+        targetConvId = res.conversationId;
+      } else {
+        return { success: false, error: res.error ?? "Could not resolve conversation" };
       }
-    } catch {
-      // Continue with targetConvId
     }
+  } catch {
+    // Continue with targetConvId
   }
 
   // If in mock or offline conv- format, return optimistic success
-  if (targetConvId.startsWith("conv-")) {
+  if (targetConvId.startsWith("conv-") || !isUuid(targetConvId)) {
     return { success: true, messageId: crypto.randomUUID(), error: null };
   }
 
@@ -329,7 +329,7 @@ export function subscribeToConversationMessages(
   currentUserId: string,
 ): () => void {
   const sb = getSupabase();
-  if (!sb || conversationId.startsWith("conv-")) {
+  if (!sb || !isUuid(conversationId)) {
     return () => {};
   }
 
@@ -369,7 +369,7 @@ export function subscribeToConversationMessages(
  */
 export async function markConversationRead(conversationId: string): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb || conversationId.startsWith("conv-")) return true;
+  if (!sb || !isUuid(conversationId)) return true;
 
   try {
     const { error } = await sb.rpc("rpc_mark_conversation_read", {

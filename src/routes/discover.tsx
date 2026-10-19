@@ -246,15 +246,28 @@ function ConnectButton({
   name: string;
   isIncoming?: boolean | undefined;
 }) {
-  const { connections } = useDemo();
+  const { connections, session } = useDemo();
   const st = connections[id];
 
   const request = async () => {
+    const currentUserId = session?.id;
     setDemo((s) => ({ connections: { ...s.connections, [id]: "pending" } }));
-    await sendConnectionRequest(id);
-    toast.success(`Request sent to ${name.split(" ")[0]}`, {
-      description: "Connection request sent. You will be alerted when they accept.",
-    });
+    const res = await sendConnectionRequest(id, currentUserId);
+    if (res.success) {
+      toast.success(`Request sent to ${name.split(" ")[0]}`, {
+        description: "Connection request sent. You will be alerted when they accept.",
+      });
+      window.dispatchEvent(new CustomEvent("cesium:connection-sent", { detail: { targetId: id } }));
+    } else {
+      setDemo((s) => {
+        const next = { ...s.connections };
+        delete next[id];
+        return { connections: next };
+      });
+      toast.error(`Could not connect with ${name.split(" ")[0]}`, {
+        description: res.error || "Please try again.",
+      });
+    }
   };
 
   if (st === "connected") {
@@ -271,9 +284,16 @@ function ConnectButton({
         <div className="flex items-center gap-2">
           <button
             onClick={async () => {
-              await respondToConnectionRequest(id, "accepted");
-              setDemo((s) => ({ connections: { ...s.connections, [id]: "connected" } }));
-              toast.success(`Connected with ${name}`);
+              const res = await respondToConnectionRequest(id, "accepted", session?.id);
+              if (res.success) {
+                setDemo((s) => ({ connections: { ...s.connections, [id]: "connected" } }));
+                toast.success(`Connected with ${name}`);
+                window.dispatchEvent(
+                  new CustomEvent("cesium:connection-sent", { detail: { targetId: id } }),
+                );
+              } else {
+                toast.error("Failed to accept connection", { description: res.error ?? undefined });
+              }
             }}
             className="btn-signal !px-3 !py-1.5 text-xs font-medium"
             title="Accept connection request"
@@ -282,13 +302,16 @@ function ConnectButton({
           </button>
           <button
             onClick={async () => {
-              await respondToConnectionRequest(id, "declined");
+              await respondToConnectionRequest(id, "declined", session?.id);
               setDemo((s) => {
                 const updated = { ...s.connections };
                 delete updated[id];
                 return { connections: updated };
               });
               toast("Request declined");
+              window.dispatchEvent(
+                new CustomEvent("cesium:connection-sent", { detail: { targetId: id } }),
+              );
             }}
             className="btn-ghost !px-3 !py-1.5 text-xs text-muted-foreground hover:text-destructive"
             title="Decline request"
@@ -304,13 +327,16 @@ function ConnectButton({
         <span className="label-mono text-xs text-muted-foreground">Pending…</span>
         <button
           onClick={async () => {
-            await cancelConnectionRequest(id);
+            await cancelConnectionRequest(id, session?.id);
             setDemo((s) => {
               const updated = { ...s.connections };
               delete updated[id];
               return { connections: updated };
             });
             toast("Connection request canceled");
+            window.dispatchEvent(
+              new CustomEvent("cesium:connection-sent", { detail: { targetId: id } }),
+            );
           }}
           className="label-mono text-xs text-muted-foreground underline hover:text-destructive"
           title="Cancel request"

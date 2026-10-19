@@ -26,6 +26,7 @@ import {
 import {
   fetchPendingRequests,
   respondToConnectionRequest,
+  isUuid,
   type PendingConnectionRequest,
 } from "@/services/connections";
 
@@ -69,7 +70,7 @@ export function FloatingNavbar() {
   }, [path]);
 
   const loadAlerts = useCallback(async () => {
-    if (!session?.id || session.id === "demo") return;
+    if (!session?.id || session.id === "demo" || !isUuid(session.id)) return;
     try {
       const [notifs, pending] = await Promise.all([
         fetchNotifications(session.id),
@@ -85,8 +86,13 @@ export function FloatingNavbar() {
   }, [session?.id]);
 
   useEffect(() => {
-    if (!session?.id || session.id === "demo") return;
+    if (!session?.id || session.id === "demo" || !isUuid(session.id)) return;
     loadAlerts();
+
+    const handleConnectionSent = () => {
+      loadAlerts();
+    };
+    window.addEventListener("cesium:connection-sent", handleConnectionSent);
 
     const unsub = subscribeToRealtimeNotifications(
       session.id,
@@ -103,8 +109,10 @@ export function FloatingNavbar() {
       },
     );
 
-    const interval = setInterval(loadAlerts, 8000);
+    // 3.5-second fast polling ensures real-time reliability even across network fluctuations
+    const interval = setInterval(loadAlerts, 3500);
     return () => {
+      window.removeEventListener("cesium:connection-sent", handleConnectionSent);
       unsub();
       clearInterval(interval);
     };

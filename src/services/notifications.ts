@@ -21,12 +21,17 @@ export type AppNotification = {
     | undefined;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(str: string | undefined | null): boolean {
+  return !!str && UUID_REGEX.test(str);
+}
+
 /**
  * Fetch all unread or recent notifications for a user
  */
 export async function fetchNotifications(userId: string): Promise<AppNotification[]> {
   const sb = getSupabase();
-  if (!sb || userId === "demo" || userId.startsWith("demo-")) {
+  if (!sb || userId === "demo" || userId.startsWith("demo-") || !isUuid(userId)) {
     return [];
   }
 
@@ -49,8 +54,9 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
       const sid =
         (payload["requester_id"] as string | undefined) ||
         (payload["sender_id"] as string | undefined) ||
+        (payload["responder_id"] as string | undefined) ||
         (payload["addressee_id"] as string | undefined);
-      if (sid) senderIds.add(sid);
+      if (sid && isUuid(sid)) senderIds.add(sid);
     }
 
     const profilesMap = new Map<
@@ -79,6 +85,7 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
       const sid =
         (payload["requester_id"] as string | undefined) ||
         (payload["sender_id"] as string | undefined) ||
+        (payload["responder_id"] as string | undefined) ||
         (payload["addressee_id"] as string | undefined);
       const senderProfile = sid ? profilesMap.get(sid) : undefined;
 
@@ -113,7 +120,7 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
  */
 export async function markNotificationRead(notificationId: string): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb || notificationId.startsWith("demo-")) return true;
+  if (!sb || !isUuid(notificationId) || notificationId.startsWith("demo-")) return true;
 
   try {
     const { error } = await sb
@@ -132,7 +139,7 @@ export async function markNotificationRead(notificationId: string): Promise<bool
  */
 export async function markAllNotificationsRead(userId: string): Promise<boolean> {
   const sb = getSupabase();
-  if (!sb || userId === "demo") return true;
+  if (!sb || userId === "demo" || !isUuid(userId)) return true;
 
   try {
     const { error } = await sb
@@ -156,7 +163,7 @@ export function subscribeToRealtimeNotifications(
   onConnectionChange?: () => void,
 ): () => void {
   const sb = getSupabase();
-  if (!sb || userId === "demo" || userId.startsWith("demo-")) {
+  if (!sb || userId === "demo" || userId.startsWith("demo-") || !isUuid(userId)) {
     return () => {};
   }
 
@@ -175,10 +182,12 @@ export function subscribeToRealtimeNotifications(
         const n = payload.new as any;
         const p = (n.payload as Record<string, unknown>) || {};
         const sid =
-          (p["requester_id"] as string | undefined) || (p["sender_id"] as string | undefined);
+          (p["requester_id"] as string | undefined) ||
+          (p["sender_id"] as string | undefined) ||
+          (p["responder_id"] as string | undefined);
 
         let senderInfo = undefined;
-        if (sid) {
+        if (sid && isUuid(sid)) {
           const { data: profile } = await sb
             .from("profiles")
             .select("id, display_name, handle, avatar_path")
@@ -225,7 +234,25 @@ export function subscribeToRealtimeNotifications(
         }
       },
     )
-    .subscribe();
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "connections",
+        filter: `requester_id=eq.${userId}`,
+      },
+      () => {
+        if (onConnectionChange) {
+          onConnectionChange();
+        }
+      },
+    )
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR") {
+        console.warn("[Realtime notifications] channel error, polling fallback active");
+      }
+    });
 
   return () => {
     sb.removeChannel(channel);
