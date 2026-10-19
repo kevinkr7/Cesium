@@ -18,6 +18,11 @@ export function FloatingNavbar() {
   const { session, profile } = useDemo();
   const [hover, setHover] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => setOpen(false), [path]);
 
@@ -200,7 +205,10 @@ export function FloatingNavbar() {
       </motion.nav>
 
       {/* Mobile Top Navigation Header */}
-      <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background/95 px-5 backdrop-blur-md md:hidden">
+      <header
+        data-hydrated={mounted ? "true" : undefined}
+        className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background/95 px-5 backdrop-blur-md md:hidden"
+      >
         <Link to="/" aria-label="Cesium home">
           <Mark />
         </Link>
@@ -314,8 +322,10 @@ function MobileMenu({
             {signedIn && (
               <li className="overflow-hidden pt-4">
                 <button
-                  onClick={() => {
-                    onSignOut();
+                  type="button"
+                  id="mobile-signout-btn"
+                  onClick={async () => {
+                    await onSignOut();
                     onClose();
                   }}
                   className="label-mono text-sm text-destructive hover:underline"
