@@ -132,13 +132,13 @@ function load() {
       }
     });
 
-    sb.auth.onAuthStateChange((_event, session) => {
+    sb.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         const u = session.user;
         const name =
           (u.user_metadata?.["display_name"] as string) || (u.email?.split("@")[0] ?? "Visitor");
         syncUserSession(u.id, name, u.email ?? "");
-      } else {
+      } else if (event === "SIGNED_OUT" || !state.session?.demo) {
         setDemo({ session: null, onboarded: false });
       }
     });
@@ -184,4 +184,8 @@ export function useDemo() {
     },
     () => defaults,
   );
+}
+
+if (typeof window !== "undefined") {
+  load();
 }

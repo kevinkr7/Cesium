@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, ArrowUpRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { HeroConstellation } from "@/components/HeroConstellation";
@@ -101,11 +101,17 @@ function Field({
 
 function Auth() {
   const nav = useNavigate();
+  const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [f, setF] = useState({ name: "", email: "", password: "", confirm: "", remember: true });
   const [errors, setErrors] = useState<Errs>({});
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
   const set = (k: keyof typeof f) => (v: string) => {
     setF((s) => ({ ...s, [k]: v }));
     setErrors((e) => ({ ...e, [k]: "", general: "" }));
@@ -211,7 +217,7 @@ function Auth() {
   };
 
   return (
-    <section className="grid min-h-[100svh] md:grid-cols-[58fr_42fr]">
+    <section data-hydrated={hydrated} className="grid min-h-[100svh] md:grid-cols-[58fr_42fr]">
       <div className="relative hidden overflow-hidden border-r border-border md:block">
         <motion.div
           className="absolute inset-0 p-10 pt-32"
@@ -339,6 +345,8 @@ function Auth() {
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
               <button
+                type="button"
+                id="toggle-auth-mode"
                 onClick={() => {
                   setMode(mode === "login" ? "register" : "login");
                   setErrors({});
