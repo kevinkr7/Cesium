@@ -56,7 +56,7 @@ export async function sendConnectionRequest(
       sb.rpc("rpc_send_connection_request", {
         p_target_user_id: targetUserId,
       }),
-      2000,
+      5000,
     );
 
     if (!res) {
@@ -98,18 +98,15 @@ export async function respondToConnectionRequest(
 
   try {
     let connectionId = connectionIdOrUserId;
+    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
 
-    // Check if UUID or targetUserId
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      connectionIdOrUserId,
-    );
-
-    if (!isUuid && currentUserId) {
+    if (effectiveUserId) {
       const { data: found } = await sb
         .from("connections")
         .select("id")
-        .eq("requester_id", connectionIdOrUserId)
-        .eq("addressee_id", currentUserId)
+        .or(
+          `and(requester_id.eq.${connectionIdOrUserId},addressee_id.eq.${effectiveUserId}),and(requester_id.eq.${effectiveUserId},addressee_id.eq.${connectionIdOrUserId})`,
+        )
         .eq("status", "pending")
         .maybeSingle();
 
@@ -123,7 +120,7 @@ export async function respondToConnectionRequest(
         p_connection_id: connectionId,
         p_status: newStatus,
       }),
-      2000,
+      5000,
     );
 
     if (!res) return { success: true, error: null };
@@ -152,15 +149,15 @@ export async function cancelConnectionRequest(
   }
 
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      connectionIdOrUserId,
-    );
+    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
 
     let query = sb.from("connections").update({ status: "canceled" });
-    if (isUuid) {
+    if (effectiveUserId) {
+      query = query.or(
+        `id.eq.${connectionIdOrUserId},and(requester_id.eq.${effectiveUserId},addressee_id.eq.${connectionIdOrUserId})`,
+      );
+    } else {
       query = query.eq("id", connectionIdOrUserId);
-    } else if (currentUserId) {
-      query = query.eq("requester_id", currentUserId).eq("addressee_id", connectionIdOrUserId);
     }
 
     const { error } = await query;
@@ -187,19 +184,17 @@ export async function removeConnection(
   }
 
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      connectionIdOrUserId,
-    );
+    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
 
     let query = sb.from("connections").update({ status: "removed" });
-    if (isUuid) {
-      query = query.eq("id", connectionIdOrUserId);
-    } else if (currentUserId) {
+    if (effectiveUserId) {
       query = query
         .or(
-          `and(requester_id.eq.${currentUserId},addressee_id.eq.${connectionIdOrUserId}),and(requester_id.eq.${connectionIdOrUserId},addressee_id.eq.${currentUserId})`,
+          `id.eq.${connectionIdOrUserId},and(requester_id.eq.${effectiveUserId},addressee_id.eq.${connectionIdOrUserId}),and(requester_id.eq.${connectionIdOrUserId},addressee_id.eq.${effectiveUserId})`,
         )
         .eq("status", "accepted");
+    } else {
+      query = query.eq("id", connectionIdOrUserId);
     }
 
     const { error } = await query;

@@ -138,7 +138,7 @@ function load() {
         const name =
           (u.user_metadata?.["display_name"] as string) || (u.email?.split("@")[0] ?? "Visitor");
         syncUserSession(u.id, name, u.email ?? "");
-      } else if (event === "SIGNED_OUT" || !state.session?.demo) {
+      } else if (event === "SIGNED_OUT") {
         setDemo({ session: null, onboarded: false });
       }
     });

@@ -105,6 +105,34 @@ export async function signInUser(data: { email: string; password: string }) {
   return { user, error: null };
 }
 
+export async function signInWithGoogle(): Promise<{
+  user: AuthUser | null;
+  error: string | null;
+  url?: string | null;
+}> {
+  const sb = getSupabase();
+  if (!sb) {
+    const user: AuthUser = {
+      id: "local-google-" + Math.random().toString(36).slice(2, 10),
+      email: "google.explorer@example.com",
+      displayName: "Google Explorer",
+      handle: "@google_explorer",
+    };
+    return { user, error: null };
+  }
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const { data, error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/login`,
+    },
+  });
+
+  if (error) return { user: null, error: error.message };
+  return { user: null, url: data.url, error: null };
+}
+
 export async function signOutUser() {
   const sb = getSupabase();
   if (sb) {

@@ -10,6 +10,8 @@ import {
   respondToConnectionRequest,
   cancelConnectionRequest,
   removeConnection,
+  fetchConnections,
+  fetchPendingRequests,
 } from "@/services/connections";
 import { blockUser, reportUser, REPORT_REASONS } from "@/services/safety";
 import { shared } from "@/lib/data";
@@ -53,6 +55,30 @@ function Discover() {
   const mine = [...demo.interests, ...demo.niche];
   const mineKey = demo.interests.join(",") + "::" + demo.niche.join(",");
   const connectionsKey = JSON.stringify(demo.connections);
+
+  useEffect(() => {
+    if (!demo.session?.id || demo.session.demo) return;
+    const userId = demo.session.id;
+    let mounted = true;
+    Promise.all([fetchConnections(userId), fetchPendingRequests(userId)])
+      .then(([conns, pending]) => {
+        if (!mounted) return;
+        const pendingMap: Record<string, "pending"> = {};
+        for (const p of pending.incoming) {
+          pendingMap[p.userId] = "pending";
+        }
+        for (const p of pending.outgoing) {
+          pendingMap[p.userId] = "pending";
+        }
+        setDemo((s) => ({
+          connections: { ...s.connections, ...conns, ...pendingMap },
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [demo.session?.id, demo.session?.demo]);
 
   useEffect(() => {
     let active = true;
@@ -361,6 +387,7 @@ function ProfileSheet({
   mine: string[];
   onClose: () => void;
 }) {
+  const demo = useDemo();
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
   const [reportDetails, setReportDetails] = useState("");
@@ -461,7 +488,7 @@ function ProfileSheet({
         )}
         <div className="mt-auto pt-8">
           <ConnectButton id={p.id} name={p.name} />
-          {p.connectionStatus === "connected" && (
+          {(demo.connections[p.id] === "connected" || p.connectionStatus === "connected") && (
             <button
               onClick={async () => {
                 await removeConnection(p.id);

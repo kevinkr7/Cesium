@@ -13,7 +13,13 @@ import {
   getOrCreateDirectConversation,
   markConversationRead,
 } from "@/services/messaging";
-import { respondToConnectionRequest, removeConnection } from "@/services/connections";
+import {
+  respondToConnectionRequest,
+  removeConnection,
+  fetchConnections,
+  fetchPendingRequests,
+} from "@/services/connections";
+import { getSupabase } from "@/lib/supabase/client";
 import { findCrossDomainBridges } from "@/services/discovery";
 import { blockUser, reportUser, REPORT_REASONS } from "@/services/safety";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -46,14 +52,118 @@ const replies = [
 const fmt = (t: number) =>
   new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+type ChatContact = {
+  id: string;
+  name: string;
+  handle: string;
+  city: string;
+  photo?: string | undefined;
+  bio: string;
+  interests: string[];
+  why?: string | undefined;
+};
+
 function Messages() {
   const { c } = Route.useSearch();
   const demo = useDemo();
   const blockedSet = new Set(demo.blockedUsers || []);
-  const contacts = people.filter(
+  const [realContactsMap, setRealContactsMap] = useState<Record<string, ChatContact>>({});
+
+  // Sync real connections and pending requests from Supabase
+  useEffect(() => {
+    if (!demo.session?.id || demo.session.demo) return;
+    const userId = demo.session.id;
+    const sb = getSupabase();
+    if (!sb) return;
+
+    let mounted = true;
+    Promise.all([fetchConnections(userId), fetchPendingRequests(userId)]).then(
+      async ([conns, pending]) => {
+        if (!mounted) return;
+        const pendingMap: Record<string, "pending"> = {};
+        for (const p of pending.incoming) {
+          pendingMap[p.userId] = "pending";
+        }
+        const mergedConns = { ...conns, ...pendingMap };
+        setDemo((s) => ({ connections: { ...s.connections, ...mergedConns } }));
+
+        const allIds = [...Object.keys(mergedConns), ...pending.incoming.map((p) => p.userId)];
+        const missingIds = allIds.filter(
+          (id) => !people.some((p) => p.id === id) && !realContactsMap[id],
+        );
+
+        if (missingIds.length > 0) {
+          const { data: profiles } = await sb
+            .from("profiles")
+            .select(
+              `
+              id,
+              display_name,
+              handle,
+              city,
+              bio,
+              avatar_path,
+              user_interests (
+                interests ( name )
+              )
+            `,
+            )
+            .in("id", missingIds);
+
+          if (mounted && profiles) {
+            const newMap: Record<string, ChatContact> = {};
+            for (const pr of profiles) {
+              const rawInterests =
+                (pr.user_interests as unknown as Array<{
+                  interests?: { name?: string | null } | null;
+                }>) || [];
+              newMap[pr.id] = {
+                id: pr.id,
+                name: pr.display_name,
+                handle: pr.handle,
+                city: pr.city ?? "Worldwide",
+                photo: pr.avatar_path ?? undefined,
+                bio: pr.bio ?? "",
+                interests: rawInterests
+                  .map((ui) => ui.interests?.name)
+                  .filter((n): n is string => Boolean(n)),
+                why: "Connected on Cesium across shared frequencies.",
+              };
+            }
+            setRealContactsMap((prev) => ({ ...prev, ...newMap }));
+          }
+        }
+      },
+    );
+
+    return () => {
+      mounted = false;
+    };
+  }, [demo.session?.id, demo.session?.demo]);
+
+  const allKnownContacts: ChatContact[] = useMemo(() => {
+    const list: ChatContact[] = people.map((p) => ({
+      id: p.id,
+      name: p.name,
+      handle: p.handle,
+      city: p.city,
+      photo: p.photo,
+      bio: p.bio,
+      interests: p.interests,
+      why: p.why,
+    }));
+    for (const [id, contact] of Object.entries(realContactsMap)) {
+      if (!list.some((c) => c.id === id)) {
+        list.push(contact);
+      }
+    }
+    return list;
+  }, [realContactsMap]);
+
+  const contacts = allKnownContacts.filter(
     (p) => demo.connections[p.id] === "connected" && !blockedSet.has(p.id),
   );
-  const pendingContacts = people.filter(
+  const pendingContacts = allKnownContacts.filter(
     (p) => demo.connections[p.id] === "pending" && !blockedSet.has(p.id),
   );
   const [active, setActive] = useState<string | undefined>(c);
@@ -72,7 +182,7 @@ function Messages() {
     }
   }, [contacts, active]);
 
-  const person = people.find((p) => p.id === active);
+  const person = allKnownContacts.find((p) => p.id === active);
   const msgs = (active && demo.messages[active]) || [];
 
   useEffect(() => {

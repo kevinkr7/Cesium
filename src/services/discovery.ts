@@ -408,46 +408,194 @@ export async function fetchDiscoveryPeople(
 
   if (sb) {
     try {
-      const res = await withTimeout(
-        sb.rpc("rpc_get_discovery", {
-          p_filter: filter ?? "all",
-          p_query: cleanQuery,
-          p_limit: 30,
-          p_offset: 0,
-        }),
-        1500,
-      );
+      // 1. Get current authenticated user ID so they are not shown to themselves
+      const {
+        data: { session: authSession },
+      } = await sb.auth.getSession();
+      const currentUserId = authSession?.user?.id;
 
-      if (res && !res.error && res.data && res.data.length > 0) {
-        const mapped = res.data.map((r) => {
-          const uncommonGround = analyzeUncommonGround(myInterests, r.interests);
+      // 2. Fetch candidates from rpc_get_discovery with 5s timeout
+      const rpcPromise = sb.rpc("rpc_get_discovery", {
+        p_filter: filter ?? "all",
+        p_query: cleanQuery,
+        p_limit: 30,
+        p_offset: 0,
+      });
+
+      // 3. Simultaneously query real registered profiles directly as a fallback/complement
+      const profilesPromise = sb
+        .from("profiles")
+        .select(
+          `
+          id,
+          handle,
+          display_name,
+          city,
+          bio,
+          avatar_path,
+          onboarding_completed,
+          discoverable,
+          conversation_style,
+          user_interests (
+            is_niche,
+            interests (
+              name,
+              category
+            )
+          )
+        `,
+        )
+        .eq("discoverable", true)
+        .limit(50);
+
+      const [rpcRes, profilesRes] = await Promise.all([
+        withTimeout(rpcPromise, 5000),
+        withTimeout(profilesPromise, 5000),
+      ]);
+
+      const seenIds = new Set<string>();
+      if (currentUserId) seenIds.add(currentUserId);
+      const candidates: DiscoveryCandidate[] = [];
+
+      // Add RPC results if available
+      if (rpcRes && !rpcRes.error && rpcRes.data && rpcRes.data.length > 0) {
+        for (const r of rpcRes.data) {
+          if (seenIds.has(r.id)) continue;
+          seenIds.add(r.id);
+
+          const uncommonGround = analyzeUncommonGround(myInterests, r.interests || []);
           const why =
             filter === "Uncommon connections"
               ? uncommonGround.perspectiveExplanation
               : r.explanation;
 
-          return {
+          candidates.push({
             id: r.id,
             name: r.display_name,
             handle: r.handle,
             city: r.city ?? "Worldwide",
             photo: r.avatar_path ?? undefined,
             bio: r.bio ?? "",
-            interests: r.interests,
-            sharedInterests: r.shared_interests,
+            interests: r.interests || [],
+            sharedInterests: r.shared_interests || [],
             matchScore: Number(r.match_score),
             why,
-            connectionStatus: (r.connection_status as "none" | "pending" | "connected") ?? "none",
+            connectionStatus: (connectionsRecord[r.id] ?? r.connection_status ?? "none") as
+              "none" | "pending" | "connected",
             uncommonGround,
-          };
-        });
-
-        const blocked = options?.blockedUserIds;
-        if (blocked && blocked.length > 0) {
-          return mapped.filter((item) => !blocked.includes(item.id));
+          });
         }
-        return mapped;
       }
+
+      // Add any registered real users from the profiles query who were not already captured
+      if (profilesRes && !profilesRes.error && profilesRes.data && profilesRes.data.length > 0) {
+        for (const rp of profilesRes.data) {
+          if (seenIds.has(rp.id)) continue;
+          seenIds.add(rp.id);
+
+          const rawInterests =
+            (rp.user_interests as unknown as Array<{
+              interests?: { name?: string | null; category?: string | null } | null;
+            }>) || [];
+          const theirInterests = rawInterests
+            .map((ui) => ui.interests?.name)
+            .filter((n): n is string => Boolean(n));
+
+          const matchResult = computeMatchScore(myInterests, theirInterests, {
+            primaryInterests: options?.primaryInterests ?? myInterests.slice(0, 3),
+            myStyles: options?.myStyles,
+            theirStyles: rp.conversation_style ?? undefined,
+            includeBridges: true,
+          });
+          const uncommonGround = analyzeUncommonGround(myInterests, theirInterests);
+          const connStatus: "none" | "pending" | "connected" = connectionsRecord[rp.id] ?? "none";
+          const why =
+            filter === "Uncommon connections" && matchResult.sharedList.length <= 1
+              ? uncommonGround.perspectiveExplanation
+              : matchResult.explanation;
+
+          candidates.push({
+            id: rp.id,
+            name: rp.display_name,
+            handle: rp.handle,
+            city: rp.city ?? "Worldwide",
+            photo: rp.avatar_path ?? undefined,
+            bio: rp.bio ?? "",
+            interests: theirInterests,
+            sharedInterests: matchResult.sharedList,
+            matchScore: matchResult.score,
+            why,
+            connectionStatus: connStatus,
+            uncommonGround,
+          });
+        }
+      }
+
+      // Add starter/seed profiles so discovery feed has rich exploration alongside real users
+      for (const p of people) {
+        if (seenIds.has(p.id)) continue;
+        seenIds.add(p.id);
+
+        const matchResult = computeMatchScore(myInterests, p.interests, {
+          primaryInterests: options?.primaryInterests ?? myInterests.slice(0, 3),
+          myStyles: options?.myStyles,
+          includeBridges: true,
+        });
+        const uncommonGround = analyzeUncommonGround(myInterests, p.interests);
+        const connStatus: "none" | "pending" | "connected" =
+          (connectionsRecord[p.id] as "none" | "pending" | "connected") ?? "none";
+        const why =
+          filter === "Uncommon connections" && matchResult.sharedList.length <= 1
+            ? uncommonGround.perspectiveExplanation
+            : matchResult.explanation || p.why;
+
+        candidates.push({
+          id: p.id,
+          name: p.name,
+          handle: p.handle,
+          city: p.city,
+          photo: p.photo,
+          bio: p.bio,
+          interests: p.interests,
+          sharedInterests: matchResult.sharedList,
+          matchScore: matchResult.score,
+          why,
+          connectionStatus: connStatus,
+          recent: p.recent,
+          featured: p.featured,
+          uncommonGround,
+        });
+      }
+
+      let filtered = candidates;
+      const blocked = options?.blockedUserIds;
+      if (blocked && blocked.length > 0) {
+        filtered = filtered.filter((item) => !blocked.includes(item.id));
+      }
+      if (cleanQuery) {
+        const q = cleanQuery.toLowerCase();
+        filtered = filtered.filter((p) => {
+          const text =
+            `${p.name} ${p.handle} ${p.city} ${p.bio} ${p.interests.join(" ")}`.toLowerCase();
+          return text.includes(q);
+        });
+      }
+      if (filter === "Shared interests") {
+        filtered = filtered.filter((p) => p.sharedInterests.length >= 2);
+      } else if (filter === "Uncommon connections") {
+        filtered = filtered.filter((p) => p.sharedInterests.length <= 1);
+      } else if (filter === "Recently discovered") {
+        filtered = filtered.filter((p) => Boolean(p.recent));
+      }
+
+      return filtered.sort((a, b) => {
+        if (filter === "Uncommon connections") {
+          if (a.matchScore !== b.matchScore) return a.matchScore - b.matchScore;
+          return a.name.localeCompare(b.name);
+        }
+        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+        return a.name.localeCompare(b.name);
+      });
     } catch {
       // Fallback gracefully to client deterministic matching
     }
