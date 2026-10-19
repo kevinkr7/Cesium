@@ -19,6 +19,11 @@ describe("Phase 2: Database Migrations, Schema Constraints & RLS", () => {
     expect(files).toContain("20261015000002_seed_data.sql");
     expect(files).toContain("20261017000001_schema_constraints_and_rls.sql");
     expect(files).toContain("20261017000002_curated_graph_bridges.sql");
+    expect(files).toContain("20261017000003_uncommon_ground_rpc.sql");
+    expect(files).toContain("20261017000004_realtime_messaging_rpc.sql");
+    expect(files).toContain("20261017000005_micro_communities_rpc.sql");
+    expect(files).toContain("20261017000006_safety_moderation_rpc.sql");
+    expect(files).toContain("20261017000007_production_hardening_rls.sql");
   });
 
   it("verifies all 16 required tables are defined in initial_schema.sql", () => {

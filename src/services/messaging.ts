@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/client";
+import { sanitizeMessageBody } from "@/lib/security";
 
 export type RealtimeMessage = {
   id: string;
@@ -123,7 +124,7 @@ export function getIcebreakerStarters(
 }
 
 /**
- * Message body validation helper: 1 to 5000 chars after trimming
+ * Message body validation helper: 1 to 5000 chars after sanitization
  */
 export function validateMessageBody(body: string): { valid: boolean; error: string | null } {
   const trimmed = body.trim();
@@ -132,6 +133,10 @@ export function validateMessageBody(body: string): { valid: boolean; error: stri
   }
   if (trimmed.length > 5000) {
     return { valid: false, error: "Message cannot exceed 5000 characters" };
+  }
+  const clean = sanitizeMessageBody(body);
+  if (clean.length === 0) {
+    return { valid: false, error: "Message body cannot be empty" };
   }
   return { valid: true, error: null };
 }
@@ -241,7 +246,8 @@ export async function sendChatMessage(
   body: string,
   _options?: { currentUserId?: string },
 ): Promise<{ success: boolean; messageId?: string; error: string | null }> {
-  const validation = validateMessageBody(body);
+  const cleanBody = sanitizeMessageBody(body);
+  const validation = validateMessageBody(cleanBody);
   if (!validation.valid) {
     return { success: false, error: validation.error };
   }
@@ -273,7 +279,7 @@ export async function sendChatMessage(
 
   const { data, error } = await sb.rpc("rpc_send_message", {
     p_conversation_id: targetConvId,
-    p_body: body.trim(),
+    p_body: cleanBody,
   });
 
   if (error) {

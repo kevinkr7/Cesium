@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { communities as seedCommunities, type Community } from "@/lib/data";
+import { sanitizeCommunityInput, sanitizeThreadInput, sanitizeReplyInput } from "@/lib/security";
 
 export type CommunityThreadReply = {
   id: string;
@@ -69,10 +70,12 @@ export function validateThreadInput(data: { title: string; content?: string }): 
 }
 
 export function validateReplyInput(text: string): { valid: boolean; error: string | null } {
-  const trimText = text.trim();
-  if (trimText.length < 1) return { valid: false, error: "Reply text cannot be empty" };
-  if (trimText.length > 3000)
+  const rawTrim = text.trim();
+  if (rawTrim.length < 1) return { valid: false, error: "Reply text cannot be empty" };
+  if (rawTrim.length > 3000)
     return { valid: false, error: "Reply text cannot exceed 3000 characters" };
+  const cleanText = sanitizeReplyInput(text);
+  if (cleanText.length < 1) return { valid: false, error: "Reply text cannot be empty" };
   return { valid: true, error: null };
 }
 
@@ -206,10 +209,16 @@ export async function createNewCommunity(data: {
     }
 
     // 1. Try transactional RPC
+    const sanitized = sanitizeCommunityInput({
+      name: data.name,
+      description: data.description,
+      line: data.description.slice(0, 70),
+    });
+
     const rpcRes = await withTimeout(
       sb.rpc("rpc_create_community", {
-        p_name: data.name.trim(),
-        p_description: data.description.trim(),
+        p_name: sanitized.name,
+        p_description: sanitized.description,
         p_topics: data.topics ?? [],
       }),
       2000,
@@ -231,9 +240,9 @@ export async function createNewCommunity(data: {
       .insert({
         id,
         slug,
-        name: data.name.trim(),
-        line: data.description.trim().slice(0, 70),
-        description: data.description.trim(),
+        name: sanitized.name,
+        line: sanitized.line,
+        description: sanitized.description,
         creator_id: user.id,
         visibility: "public",
       })
@@ -343,7 +352,8 @@ export async function createCommunityThread(
   title: string,
   content: string = "",
 ): Promise<{ success: boolean; postId?: string; error: string | null }> {
-  const validation = validateThreadInput({ title, content });
+  const sanitized = sanitizeThreadInput({ title, content });
+  const validation = validateThreadInput(sanitized);
   if (!validation.valid) {
     return { success: false, error: validation.error };
   }
@@ -366,8 +376,8 @@ export async function createCommunityThread(
     const rpcRes = await withTimeout(
       sb.rpc("rpc_create_community_post", {
         p_community_id: communityId,
-        p_title: title.trim(),
-        p_content: content.trim(),
+        p_title: sanitized.title,
+        p_content: sanitized.content,
       }),
       2000,
     );
@@ -383,8 +393,8 @@ export async function createCommunityThread(
       .insert({
         community_id: communityId,
         author_id: user.id,
-        title: title.trim(),
-        content: content.trim(),
+        title: sanitized.title,
+        content: sanitized.content,
       })
       .select("id")
       .single();
@@ -401,7 +411,8 @@ export async function createCommunityReply(
   userId: string,
   text: string,
 ): Promise<{ success: boolean; replyId?: string; error: string | null }> {
-  const validation = validateReplyInput(text);
+  const cleanText = sanitizeReplyInput(text);
+  const validation = validateReplyInput(cleanText);
   if (!validation.valid) {
     return { success: false, error: validation.error };
   }
@@ -424,7 +435,7 @@ export async function createCommunityReply(
     const rpcRes = await withTimeout(
       sb.rpc("rpc_create_community_reply", {
         p_post_id: postId,
-        p_text: text.trim(),
+        p_text: cleanText,
       }),
       2000,
     );
@@ -435,17 +446,17 @@ export async function createCommunityReply(
     }
 
     // 2. Direct table fallback
-    const { data: reply, error: replyErr } = await sb
+    const { data: reply, error: insertError } = await sb
       .from("community_replies")
       .insert({
         post_id: postId,
         author_id: user.id,
-        text: text.trim(),
+        text: cleanText,
       })
       .select("id")
       .single();
 
-    if (replyErr) return { success: false, error: replyErr.message };
+    if (insertError) return { success: false, error: insertError.message };
     return { success: true, replyId: reply?.id ?? crypto.randomUUID(), error: null };
   } catch {
     return { success: true, replyId: crypto.randomUUID(), error: null };

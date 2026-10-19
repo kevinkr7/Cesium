@@ -1,8 +1,8 @@
 # CESIUM — PRODUCTION ROADMAP & PROGRESS TRACKER
 
 Master tracking dashboard for verifying Cesium against the **Production Engineering Contract**.**Last Updated**: 2026-10-18  
-**Current Phase**: Phase 11 — Safety, Blocking & Content Moderation (COMPLETED)  
-**Active Branch**: `phase-11-safety-moderation`
+**Current Phase**: Phase 12 — Production Hardening, RLS & Security (COMPLETED)  
+**Active Branch**: `phase-12-production-hardening-rls`
 
 ---
 
@@ -22,7 +22,7 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 | **Phase 9**  | **Icebreakers & Realtime Messaging**      | **PASS** ✅ | `docs/production/phase-9.md`  |  Bridge starters, direct conv RPC, Realtime publication & delivery status; 121/121 Vitest & 8/8 E2E pass; 0 tsc/lint errors  |
 | **Phase 10** | **Micro-Communities & Threads**           | **PASS** ✅ | `docs/production/phase-10.md` | Micro-community creation, membership toggles, discussion threads & replies; 136/136 Vitest & 8/8 E2E pass; 0 tsc/lint errors |
 | **Phase 11** | **Safety, Blocking & Content Moderation** | **PASS** ✅ | `docs/production/phase-11.md` |      User blocking, relationship severing, reports & content scanning; 149/149 Vitest & 8/8 E2E pass; 0 tsc/lint errors      |
-| **Phase 12** | Production Hardening, RLS & Security      |   PENDING   | `docs/production/phase-12.md` |                                                              —                                                               |
+| **Phase 12** | **Production Hardening, RLS & Security**  | **PASS** ✅ | `docs/production/phase-12.md` |  RLS defense-in-depth, anti-tampering trigger, storage isolation & XSS/injection sanitizers; 181/181 Vitest & 8/8 E2E pass   |
 | **Phase 13** | End-to-End Verification Suite             |   PENDING   | `docs/production/phase-13.md` |                                                              —                                                               |
 | **Phase 14** | Production Deployment & Release Readiness |   PENDING   | `docs/production/phase-14.md` |                                                              —                                                               |
 
@@ -267,6 +267,34 @@ Master tracking dashboard for verifying Cesium against the **Production Engineer
 - [x] Add content report buttons and Report modal dialog to community discussion threads and replies in `src/routes/communities.$id.tsx`.
 - [x] Expand `src/test/safety-validation.test.ts` to 17 comprehensive unit & integration tests covering auth rules, self-block prevention, connection severing, discovery filtering, report validation, and toxic content scanning.
 - [x] Verify complete test suite execution (149/149 Vitest unit and integration tests passing across 13 files).
+- [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
+- [x] Verify zero ESLint errors (`npm run lint` exits with 0).
+- [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).
+- [x] Verify clean production build (`npm run build` exits with 0).
+
+---
+
+## Phase 12 Checklist
+
+- [x] Create additive migration `supabase/migrations/20261017000007_production_hardening_rls.sql` implementing defense-in-depth RLS policies across all schema tables.
+- [x] Add `profiles_delete` policy allowing authenticated users to delete their own account.
+- [x] Add `profiles_select_connections` policy granting mutual profile visibility to accepted connection partners regardless of discoverable status.
+- [x] Add `connections_delete` policy allowing either party to sever connections or cancel pending requests.
+- [x] Implement anti-tampering trigger `trg_check_connection_status` preventing requesters from escalating their own requests to accepted.
+- [x] Add `messages_delete` policy allowing authors to delete their own messages.
+- [x] Add `conversations_delete`, `conv_members_update`, and `conv_members_delete` policies for room lifecycle and member departures.
+- [x] Add `communities_delete` and `comm_members_update` policies for community management.
+- [x] Add `interests_update` and `interests_delete` policies for custom interest creators.
+- [x] Add `notifications_insert` policy restricting notification creation to self or bilateral connection peers.
+- [x] Harden storage bucket `public_assets` with authenticated user folder isolation policies for INSERT, UPDATE, and DELETE (`avatars/<userId>/*`).
+- [x] Implement comprehensive security & sanitization engine in `src/lib/security.ts` (`stripHtml`, `escapeHtml`, `validateHandle`, `sanitizeHandle`, `sanitizeDisplayName`, `sanitizeBio`, `sanitizeCity`, `sanitizeSearchQuery`, `sanitizeMessageBody`, `sanitizeUrl`, `sanitizeReportInput`).
+- [x] Integrate input sanitization in `src/services/profiles.ts` for display names, handles, bios, and cities.
+- [x] Integrate search query injection defenses in `src/services/discovery.ts`.
+- [x] Integrate message body sanitization in `src/services/messaging.ts`.
+- [x] Integrate community, thread, and reply sanitization in `src/services/communities.ts`.
+- [x] Integrate safety report sanitization in `src/services/safety.ts`.
+- [x] Add comprehensive security test suite in `src/test/security-hardening.test.ts` (32 tests).
+- [x] Verify complete test suite execution (**181/181 Vitest unit and integration tests passing across 14 files**).
 - [x] Verify zero TypeScript errors (`tsc --noEmit` exits with 0).
 - [x] Verify zero ESLint errors (`npm run lint` exits with 0).
 - [x] Re-run Playwright E2E regression suite (8/8 browser tests passing).

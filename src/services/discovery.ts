@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { people, interestCategories, shared } from "@/lib/data";
 import { CURATED_GRAPH_EDGES } from "@/services/interests";
+import { sanitizeSearchQuery } from "@/lib/security";
 
 export type UncommonGroundAnalysis = {
   anchor: string | null;
@@ -402,6 +403,7 @@ export async function fetchDiscoveryPeople(
     blockedUserIds?: string[] | undefined;
   },
 ): Promise<DiscoveryCandidate[]> {
+  const cleanQuery = searchQuery ? sanitizeSearchQuery(searchQuery) : "";
   const sb = getSupabase();
 
   if (sb) {
@@ -409,7 +411,7 @@ export async function fetchDiscoveryPeople(
       const res = await withTimeout(
         sb.rpc("rpc_get_discovery", {
           p_filter: filter ?? "all",
-          p_query: searchQuery ?? "",
+          p_query: cleanQuery,
           p_limit: 30,
           p_offset: 0,
         }),
@@ -486,8 +488,8 @@ export async function fetchDiscoveryPeople(
     })
     .filter((p) => {
       if (options?.blockedUserIds && options.blockedUserIds.includes(p.id)) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase().trim();
+      if (cleanQuery) {
+        const q = cleanQuery.toLowerCase();
         const text =
           `${p.name} ${p.handle} ${p.city} ${p.bio} ${p.interests.join(" ")}`.toLowerCase();
         if (!text.includes(q)) return false;
