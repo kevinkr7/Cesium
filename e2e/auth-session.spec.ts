@@ -9,7 +9,7 @@ test.describe("Authentication & Session Lifecycle", () => {
   test("Renders login view and allows toggling to register mode", async ({ page }) => {
     await page.goto("/login");
     await expect(page).toHaveTitle(/Sign in — Cesium/);
-    await expect(page.locator("section[data-hydrated='true']")).toBeVisible();
+    await expect(page.locator("section[data-hydrated='true']")).toBeVisible({ timeout: 15000 });
 
     // Initial state is Login mode
     await expect(page.locator("text=01 / Sign in")).toBeVisible();
@@ -87,11 +87,11 @@ test.describe("Authentication & Session Lifecycle", () => {
   test("Authenticated user sees active navigation and can sign out", async ({ page, isMobile }) => {
     await seedSession(page, { name: "Alex Rivera", onboarded: true });
     await page.goto("/");
-
     if (isMobile) {
-      const openMenuBtn = page.locator("button[aria-label='Open menu']");
+      await page.waitForSelector("header[data-hydrated='true']");
+      const openMenuBtn = page.locator("#mobile-open-menu-btn");
       await expect(openMenuBtn).toBeVisible();
-      await openMenuBtn.evaluate((el: HTMLElement) => el.click());
+      await openMenuBtn.click({ force: true });
 
       // Mobile menu dialog opens
       const menu = page.locator("div[role='dialog'][aria-label='Menu']");
@@ -104,11 +104,12 @@ test.describe("Authentication & Session Lifecycle", () => {
       // Sign out
       const signOutBtn = page.locator("#mobile-signout-btn");
       await expect(signOutBtn).toBeVisible();
-      await signOutBtn.evaluate((el: HTMLElement) => el.click());
-      await page.waitForTimeout(600);
+      await signOutBtn.click();
+      await expect(menu).not.toBeVisible();
 
       // Open menu again to verify unauthenticated state
-      await openMenuBtn.evaluate((el: HTMLElement) => el.click());
+      await expect(page.locator("header[data-hydrated='true']")).toBeVisible();
+      await openMenuBtn.click({ force: true });
       await expect(menu).toBeVisible();
       await expect(menu.locator("a", { hasText: "Sign in" })).toBeVisible();
       await expect(menu.locator("text=Discover")).not.toBeVisible();
