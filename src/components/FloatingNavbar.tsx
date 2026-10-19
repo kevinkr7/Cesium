@@ -213,6 +213,8 @@ export function FloatingNavbar() {
           <Mark />
         </Link>
         <button
+          type="button"
+          id="mobile-open-menu-btn"
           onClick={() => setOpen(true)}
           className="flex h-11 w-11 flex-col items-center justify-center gap-1.5"
           aria-label="Open menu"
