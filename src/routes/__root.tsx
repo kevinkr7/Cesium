@@ -127,6 +127,20 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+      timer = setTimeout(() => {
+        if (window.location.hash.includes("access_token")) {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+      }, 500);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

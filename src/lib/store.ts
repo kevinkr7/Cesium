@@ -78,7 +78,12 @@ let state: DemoState = defaults;
 let loaded = false;
 const listeners = new Set<() => void>();
 
-async function syncUserSession(userId: string, defaultName: string, email: string) {
+async function syncUserSession(
+  userId: string,
+  defaultName: string,
+  email: string,
+  avatarUrl?: string,
+) {
   let profile = null;
   let userInterests = null;
   try {
@@ -95,7 +100,9 @@ async function syncUserSession(userId: string, defaultName: string, email: strin
       email: email,
       demo: false,
     },
-    profile,
+    profile: profile
+      ? { ...profile, avatar_path: profile.avatar_path || avatarUrl || null }
+      : profile,
     city: profile?.city ?? prev.city ?? "Worldwide",
     onboarded: profile ? profile.onboarding_completed : prev.onboarded,
     bio: profile?.bio ?? prev.bio,
@@ -123,21 +130,31 @@ function load() {
   // Sync with Supabase Auth session if configured
   const sb = getSupabase();
   if (sb) {
+    const extractMeta = (u: { email?: string; user_metadata?: Record<string, unknown> }) => {
+      const meta = u.user_metadata || {};
+      const name =
+        (meta["full_name"] as string) ||
+        (meta["name"] as string) ||
+        (meta["display_name"] as string) ||
+        (u.email?.split("@")[0] ?? "Visitor");
+      const avatar =
+        (meta["avatar_url"] as string) || (meta["picture"] as string) || undefined;
+      return { name, avatar };
+    };
+
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const u = session.user;
-        const name =
-          (u.user_metadata?.["display_name"] as string) || (u.email?.split("@")[0] ?? "Visitor");
-        syncUserSession(u.id, name, u.email ?? "");
+        const { name, avatar } = extractMeta(u);
+        syncUserSession(u.id, name, u.email ?? "", avatar);
       }
     });
 
     sb.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         const u = session.user;
-        const name =
-          (u.user_metadata?.["display_name"] as string) || (u.email?.split("@")[0] ?? "Visitor");
-        syncUserSession(u.id, name, u.email ?? "");
+        const { name, avatar } = extractMeta(u);
+        syncUserSession(u.id, name, u.email ?? "", avatar);
       } else if (event === "SIGNED_OUT") {
         setDemo({ session: null, onboarded: false });
       }
