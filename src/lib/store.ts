@@ -148,6 +148,10 @@ function load() {
         const u = session.user;
         const { name, avatar } = extractMeta(u);
         syncUserSession(u.id, name, u.email ?? "", avatar);
+      } else {
+        if (state.session && !state.session.demo) {
+          setDemo({ session: null, onboarded: false });
+        }
       }
     });
 

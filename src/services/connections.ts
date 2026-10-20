@@ -62,8 +62,21 @@ export async function sendConnectionRequest(
   }
 
   try {
-    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
-    if (effectiveUserId && targetUserId === effectiveUserId) {
+    // Authenticate the caller directly with Supabase Auth
+    const authRes = await sb.auth.getUser();
+    const authUser = authRes.data?.user;
+    const effectiveUserId =
+      authUser?.id || (await sb.auth.getSession()).data.session?.user?.id || currentUserId;
+
+    if (!effectiveUserId) {
+      return {
+        success: false,
+        status: "none",
+        error: "Your session has expired. Please sign in to connect with members.",
+      };
+    }
+
+    if (effectiveUserId === targetUserId) {
       return { success: false, status: "none", error: "Cannot connect to self" };
     }
 
@@ -82,6 +95,17 @@ export async function sendConnectionRequest(
           status: (data.status as ConnectionStatus) ?? "pending",
           error: null,
         };
+      }
+    }
+
+    if (res?.error) {
+      const msg = res.error.message || "";
+      if (
+        msg.includes("Cannot connect to self") ||
+        msg.includes("Unable to connect") ||
+        msg.includes("Unauthorized")
+      ) {
+        return { success: false, status: "none", error: msg };
       }
     }
 
@@ -166,7 +190,11 @@ export async function respondToConnectionRequest(
 
   try {
     let connectionId = connectionIdOrUserId;
-    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
+    const authRes = await sb.auth.getUser();
+    const effectiveUserId =
+      authRes.data?.user?.id ||
+      (await sb.auth.getSession()).data.session?.user?.id ||
+      currentUserId;
 
     if (effectiveUserId) {
       const { data: found } = await sb
@@ -252,7 +280,11 @@ export async function cancelConnectionRequest(
   }
 
   try {
-    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
+    const authRes = await sb.auth.getUser();
+    const effectiveUserId =
+      authRes.data?.user?.id ||
+      (await sb.auth.getSession()).data.session?.user?.id ||
+      currentUserId;
 
     let query = sb.from("connections").update({ status: "canceled" });
     if (effectiveUserId) {
@@ -292,7 +324,11 @@ export async function removeConnection(
   }
 
   try {
-    const effectiveUserId = currentUserId || (await sb.auth.getSession()).data.session?.user?.id;
+    const authRes = await sb.auth.getUser();
+    const effectiveUserId =
+      authRes.data?.user?.id ||
+      (await sb.auth.getSession()).data.session?.user?.id ||
+      currentUserId;
 
     let query = sb.from("connections").update({ status: "removed" });
     if (effectiveUserId) {

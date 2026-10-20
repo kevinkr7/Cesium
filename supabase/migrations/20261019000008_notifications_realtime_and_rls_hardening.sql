@@ -130,7 +130,7 @@ BEGIN
 
   RETURN jsonb_build_object('success', true, 'status', 'pending', 'id', v_new_id);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- 6. Hardened Transactional Connection Response with Accepted Notification
 CREATE OR REPLACE FUNCTION public.rpc_respond_to_connection_request(p_connection_id UUID, p_status TEXT)
@@ -140,7 +140,7 @@ DECLARE
   v_conn RECORD;
 BEGIN
   IF v_caller IS NULL THEN
-    RAISE EXCEPTION 'Unauthorized';
+    RAISE EXCEPTION 'Unauthorized: must be logged in';
   END IF;
 
   IF p_status NOT IN ('accepted', 'declined') THEN
@@ -174,9 +174,16 @@ BEGIN
 
   RETURN jsonb_build_object('success', true, 'status', p_status);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- 7. Ensure permissive RLS policies for notifications and connections
+-- 7. Grant permissions for RPC execution and table modifications
+GRANT EXECUTE ON FUNCTION public.rpc_send_connection_request(UUID) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.rpc_respond_to_connection_request(UUID, TEXT) TO authenticated, anon;
+GRANT ALL ON TABLE public.connections TO authenticated;
+GRANT ALL ON TABLE public.notifications TO authenticated;
+GRANT ALL ON TABLE public.messages TO authenticated;
+
+-- 8. Ensure permissive RLS policies for notifications and connections
 DO $$
 BEGIN
   -- Notifications policies
@@ -187,6 +194,7 @@ BEGIN
       AND (
         auth.uid() = user_id
         OR type = 'connection_request'
+        OR type = 'connection_accepted'
         OR EXISTS (
           SELECT 1 FROM public.connections c
           WHERE (c.requester_id = auth.uid() AND c.addressee_id = notifications.user_id)
@@ -211,10 +219,14 @@ BEGIN
 
   DROP POLICY IF EXISTS connections_insert ON public.connections;
   CREATE POLICY connections_insert ON public.connections
-    FOR INSERT WITH CHECK (auth.uid() = requester_id);
+    FOR INSERT WITH CHECK (
+      auth.role() = 'authenticated'
+      AND auth.uid() = requester_id
+    );
 
   DROP POLICY IF EXISTS connections_update ON public.connections;
   CREATE POLICY connections_update ON public.connections
-    FOR UPDATE USING (auth.uid() = requester_id OR auth.uid() = addressee_id);
+    FOR UPDATE USING (auth.uid() = requester_id OR auth.uid() = addressee_id)
+    WITH CHECK (auth.uid() = requester_id OR auth.uid() = addressee_id);
 END $$;
 
