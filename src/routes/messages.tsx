@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { ArrowUpRight, ArrowLeft, X } from "lucide-react";
+import { ArrowUpRight, ArrowLeft, X, Sparkles, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { people, shared } from "@/lib/data";
 import { setDemo, useDemo } from "@/lib/store";
@@ -71,6 +71,38 @@ function Messages() {
   const [realContactsMap, setRealContactsMap] = useState<Record<string, ChatContact>>({});
   const realContactsRef = useRef(realContactsMap);
   realContactsRef.current = realContactsMap;
+
+  const [aurideEngine, setAurideEngine] = useState<{
+    provider: string;
+    model?: string;
+    error?: string;
+    latencyMs?: number;
+  }>({ provider: "checking" });
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/auride/status")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!mounted) return;
+        if (data.geminiConfigured) {
+          setAurideEngine({
+            provider: "gemini",
+            model: data.preferredModel || "gemini-2.5-flash",
+          });
+        } else {
+          setAurideEngine({
+            provider: "cesium_graph_synthesizer",
+            model: "offline_fallback",
+            error: "No GEMINI_API_KEY in environment",
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Sync real connections and pending requests from Supabase
   useEffect(() => {
@@ -406,6 +438,14 @@ function Messages() {
         });
 
         const aiData = await aiRes.json();
+        console.log("[Auride Engine Active]:", aiData);
+        setAurideEngine({
+          provider: aiData.provider ?? "cesium_graph_synthesizer",
+          model: aiData.model,
+          error: aiData.error,
+          latencyMs: aiData.latencyMs,
+        });
+
         const replyText =
           aiData.reply ||
           "Fascinating connection. I can feel the resonance across the constellation.";
@@ -597,9 +637,32 @@ function Messages() {
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{person.name}</p>
                         {person.id === "auride" && (
-                          <span className="label-mono rounded bg-signal/15 px-1.5 py-0.5 text-[8px] font-bold text-signal">
-                            AI COMPANION
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="label-mono rounded bg-signal/15 px-1.5 py-0.5 text-[8px] font-bold text-signal">
+                              AI COMPANION
+                            </span>
+                            {aurideEngine.provider === "gemini" ? (
+                              <span
+                                className="label-mono flex items-center gap-1 rounded border border-signal/40 bg-signal/10 px-1.5 py-0.5 text-[8px] font-semibold text-signal"
+                                title={`Powered by Google ${aurideEngine.model || "gemini-2.5-flash"}${aurideEngine.latencyMs ? ` (${aurideEngine.latencyMs}ms)` : ""}`}
+                              >
+                                <Sparkles size={9} />
+                                <span>{aurideEngine.model || "gemini-2.5-flash"}</span>
+                              </span>
+                            ) : aurideEngine.provider === "cesium_graph_synthesizer" ? (
+                              <span
+                                className="label-mono flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-semibold text-amber-400 cursor-help"
+                                title={
+                                  aurideEngine.error
+                                    ? `Offline Fallback: ${aurideEngine.error}`
+                                    : "Offline Rule-Based Fallback (GEMINI_API_KEY is not set or failed)"
+                                }
+                              >
+                                <AlertCircle size={9} />
+                                <span>Rule-Based (Offline)</span>
+                              </span>
+                            ) : null}
+                          </div>
                         )}
                       </div>
                       <span className="label-mono text-xs text-muted-foreground">

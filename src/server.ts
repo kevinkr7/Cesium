@@ -103,7 +103,10 @@ export default {
         return applySecurityHeaders(uploadRes);
       }
 
-      if (url.pathname === "/api/auride/chat" && request.method === "POST") {
+      if (
+        (url.pathname === "/api/auride/chat" && (request.method === "POST" || request.method === "GET")) ||
+        (url.pathname === "/api/auride/status" && request.method === "GET")
+      ) {
         const { handleAurideChat } = await import("./server/auride");
         const chatRes = await handleAurideChat(request, env);
         return applySecurityHeaders(chatRes);
