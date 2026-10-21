@@ -99,27 +99,7 @@ export async function createPost(
         caption: sanitizedCaption,
         visibility: input.visibility,
       })
-      .select(
-        `
-        id,
-        user_id,
-        media_url,
-        media_type,
-        thumbnail_url,
-        caption,
-        visibility,
-        likes_count,
-        comments_count,
-        created_at,
-        profiles (
-          id,
-          display_name,
-          handle,
-          city,
-          avatar_path
-        )
-      `,
-      )
+      .select()
       .single();
 
     if (error || !data) {
@@ -128,13 +108,13 @@ export async function createPost(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const row = data as any;
-    const rawProfile = row.profiles as {
-      id: string;
-      display_name: string;
-      handle: string;
-      city?: string | null;
-      avatar_path?: string | null;
-    } | null;
+
+    // Fetch author profile directly to avoid PostgREST relationship ambiguity
+    const { data: rawProfile } = await sb
+      .from("profiles")
+      .select("id, display_name, handle, city, avatar_path")
+      .eq("id", input.userId)
+      .maybeSingle();
 
     const post: Post = {
       id: row.id,
@@ -180,27 +160,7 @@ export async function fetchFeedPosts(
   try {
     let query = sb
       .from("posts")
-      .select(
-        `
-        id,
-        user_id,
-        media_url,
-        media_type,
-        thumbnail_url,
-        caption,
-        visibility,
-        likes_count,
-        comments_count,
-        created_at,
-        profiles (
-          id,
-          display_name,
-          handle,
-          city,
-          avatar_path
-        )
-      `,
-      )
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(30);
 
@@ -211,6 +171,26 @@ export async function fetchFeedPosts(
     const { data: postsData, error } = await query;
     if (error || !postsData) {
       return [];
+    }
+
+    // Batch fetch author profiles to avoid PostgREST relationship ambiguity
+    const userIds = [...new Set(postsData.map((p) => p.user_id))];
+    const profilesMap = new Map<
+      string,
+      { id: string; display_name: string; handle: string; city?: string | null; avatar_path?: string | null }
+    >();
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await sb
+        .from("profiles")
+        .select("id, display_name, handle, city, avatar_path")
+        .in("id", userIds);
+
+      if (profiles) {
+        for (const p of profiles) {
+          profilesMap.set(p.id, p);
+        }
+      }
     }
 
     // Check which posts current user has liked
@@ -229,13 +209,7 @@ export async function fetchFeedPosts(
     }
 
     return postsData.map((data) => {
-      const rawProfile = (data as any).profiles as unknown as {
-        id: string;
-        display_name: string;
-        handle: string;
-        city?: string | null;
-        avatar_path?: string | null;
-      } | null;
+      const rawProfile = profilesMap.get(data.user_id);
 
       return {
         id: data.id,
@@ -280,33 +254,20 @@ export async function fetchUserPosts(
   try {
     const { data: postsData, error } = await sb
       .from("posts")
-      .select(
-        `
-        id,
-        user_id,
-        media_url,
-        media_type,
-        thumbnail_url,
-        caption,
-        visibility,
-        likes_count,
-        comments_count,
-        created_at,
-        profiles (
-          id,
-          display_name,
-          handle,
-          city,
-          avatar_path
-        )
-      `,
-      )
+      .select("*")
       .eq("user_id", targetUserId)
       .order("created_at", { ascending: false });
 
     if (error || !postsData) {
       return [];
     }
+
+    // Fetch author profile directly to avoid PostgREST relationship ambiguity
+    const { data: rawProfile } = await sb
+      .from("profiles")
+      .select("id, display_name, handle, city, avatar_path")
+      .eq("id", targetUserId)
+      .maybeSingle();
 
     let likedPostIds = new Set<string>();
     if (currentUserId && postsData.length > 0) {
@@ -323,14 +284,6 @@ export async function fetchUserPosts(
     }
 
     return postsData.map((data) => {
-      const rawProfile = (data as any).profiles as unknown as {
-        id: string;
-        display_name: string;
-        handle: string;
-        city?: string | null;
-        avatar_path?: string | null;
-      } | null;
-
       return {
         id: data.id,
         userId: data.user_id,
