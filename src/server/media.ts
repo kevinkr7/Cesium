@@ -35,10 +35,11 @@ export async function handleMediaUpload(request: Request, _env: unknown): Promis
     const arrayBuffer = await file.arrayBuffer();
 
     // Check if Cloudflare R2 is configured
-    const r2Config = getR2Config();
+    const r2Config = getR2Config(env);
     if (isR2Configured(r2Config)) {
       const uploadRes = await uploadToR2(key, arrayBuffer, file.type, r2Config);
       if (uploadRes.error) {
+        console.error("[R2 Upload Error]:", uploadRes.error);
         return new Response(JSON.stringify({ error: uploadRes.error }), {
           status: 502,
           headers: { "content-type": "application/json" },
@@ -57,6 +58,14 @@ export async function handleMediaUpload(request: Request, _env: unknown): Promis
 
     // Fallback: If R2 is not yet configured with secret keys in development,
     // convert small files or provide simulated storage URL so testing works seamlessly
+    const missingKeys: string[] = [];
+    if (!r2Config.accountId) missingKeys.push("CLOUDFLARE_ACCOUNT_ID");
+    if (!r2Config.accessKeyId) missingKeys.push("CLOUDFLARE_R2_ACCESS_KEY_ID");
+    if (!r2Config.secretAccessKey) missingKeys.push("CLOUDFLARE_R2_SECRET_ACCESS_KEY");
+    if (!r2Config.bucketName) missingKeys.push("CLOUDFLARE_R2_BUCKET_NAME");
+
+    console.warn(`[Media Upload]: R2 credentials missing (${missingKeys.join(", ")}). Using local dev storage fallback.`);
+
     const base64 = Buffer.from(arrayBuffer).toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
 
@@ -66,7 +75,7 @@ export async function handleMediaUpload(request: Request, _env: unknown): Promis
         mediaType: validation.mediaType,
         size: file.size,
         storage: "dev_fallback",
-        notice: "Stored using dev fallback. Set R2_ACCOUNT_ID and keys for Cloudflare R2 production storage.",
+        notice: `Stored using dev fallback. Missing credentials: ${missingKeys.join(", ")}`,
       }),
       { status: 201, headers: { "content-type": "application/json" } },
     );

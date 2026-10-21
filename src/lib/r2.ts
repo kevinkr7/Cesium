@@ -73,25 +73,69 @@ export function validateMediaFile(file: { size: number; type: string }): {
 }
 
 /**
- * Gets R2 configuration from process.env or import.meta.env
+ * Gets R2 configuration from passed runtime env, process.env, or import.meta.env
  */
-export function getR2Config(): R2Config {
-  const env =
+export function getR2Config(passedEnv?: unknown): R2Config {
+  const pEnv =
+    passedEnv && typeof passedEnv === "object"
+      ? (passedEnv as Record<string, string | undefined>)
+      : {};
+
+  const procEnv =
     typeof process !== "undefined" && process.env
-      ? process.env
-      : typeof import.meta !== "undefined" && import.meta.env
-        ? (import.meta.env as Record<string, string | undefined>)
-        : {};
+      ? (process.env as Record<string, string | undefined>)
+      : {};
+
+  const metaEnv =
+    typeof import.meta !== "undefined" && (import.meta as any).env
+      ? ((import.meta as any).env as Record<string, string | undefined>)
+      : {};
+
+  const getVal = (...keys: string[]): string | undefined => {
+    for (const k of keys) {
+      if (pEnv[k]) return pEnv[k];
+      if (procEnv[k]) return procEnv[k];
+      if (metaEnv[k]) return metaEnv[k];
+    }
+    return undefined;
+  };
+
+  const accountId = getVal(
+    "CLOUDFLARE_ACCOUNT_ID",
+    "R2_ACCOUNT_ID",
+    "CLOUDFLARE_R2_ACCOUNT_ID",
+  );
+
+  const accessKeyId = getVal(
+    "CLOUDFLARE_R2_ACCESS_KEY_ID",
+    "R2_ACCESS_KEY_ID",
+    "CLOUDFLARE_ACCESS_KEY_ID",
+  );
+
+  const secretAccessKey = getVal(
+    "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
+    "R2_SECRET_ACCESS_KEY",
+    "CLOUDFLARE_SECRET_ACCESS_KEY",
+  );
+
+  const bucketName =
+    getVal(
+      "CLOUDFLARE_R2_BUCKET_NAME",
+      "R2_BUCKET_NAME",
+      "CLOUDFLARE_R2_BUCKET",
+      "CLOUDFLARE_BUCKET_NAME",
+    ) || "cesium-media";
+
+  const publicUrl =
+    getVal("CLOUDFLARE_R2_PUBLIC_URL", "R2_PUBLIC_URL") ||
+    (accountId ? `https://${bucketName}.${accountId}.r2.cloudflarestorage.com` : undefined);
 
   return {
-    accountId: env["R2_ACCOUNT_ID"] || env["CLOUDFLARE_R2_ACCOUNT_ID"],
-    accessKeyId: env["R2_ACCESS_KEY_ID"] || env["CLOUDFLARE_R2_ACCESS_KEY_ID"],
-    secretAccessKey: env["R2_SECRET_ACCESS_KEY"] || env["CLOUDFLARE_R2_SECRET_ACCESS_KEY"],
-    bucketName: env["R2_BUCKET_NAME"] || env["CLOUDFLARE_R2_BUCKET"] || "cesium-media",
-    publicUrl:
-      env["R2_PUBLIC_URL"] ||
-      env["CLOUDFLARE_R2_PUBLIC_URL"] ||
-      (env["R2_ACCOUNT_ID"] ? `https://${env["R2_BUCKET_NAME"] || "cesium-media"}.${env["R2_ACCOUNT_ID"]}.r2.cloudflarestorage.com` : undefined),
+    accountId,
+    accessKeyId,
+    secretAccessKey,
+    bucketName,
+    publicUrl,
   };
 }
 
