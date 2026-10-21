@@ -1,6 +1,6 @@
 import { validateMediaFile, uploadToR2, isR2Configured, getR2Config } from "../lib/r2";
 
-export async function handleMediaUpload(request: Request, _env: unknown): Promise<Response> {
+export async function handleMediaUpload(request: Request, env?: unknown): Promise<Response> {
   try {
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.includes("multipart/form-data")) {

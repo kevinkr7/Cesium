@@ -101,6 +101,7 @@ function Discover() {
         const selfId = demo.session?.id;
         const selfHandle = demo.profile?.handle?.toLowerCase().replace(/^@/, "");
         const filtered = data.filter((c) => {
+          if (c.id === "auride" || c.handle?.toLowerCase() === "@auri") return false;
           if (selfId && c.id === selfId) return false;
           if (selfHandle && c.handle.toLowerCase().replace(/^@/, "") === selfHandle) return false;
           return true;

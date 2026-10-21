@@ -163,13 +163,29 @@ function Messages() {
     return list;
   }, [realContactsMap]);
 
-  const contacts = allKnownContacts.filter(
-    (p) => demo.connections[p.id] === "connected" && !blockedSet.has(p.id),
-  );
+  const contacts = useMemo(() => {
+    const aurideContact: ChatContact = {
+      id: "auride",
+      name: "Auride",
+      handle: "@auri",
+      city: "Cesium Orbit",
+      photo: "/Auride.png",
+      bio: "Cesium's resident synthetic intelligence. Bridges strange topics, finds unexpected patterns, and always has time to explore a 2 AM curiosity.",
+      interests: ["Creative coding", "Astronomy", "Ambient music", "Linguistics", "Typography", "01:43 AM ideas"],
+      why: "Synthesizes patterns between disparate thoughts and maps your intellectual constellation.",
+    };
+
+    const regularContacts = allKnownContacts.filter(
+      (p) => p.id !== "auride" && demo.connections[p.id] === "connected" && !blockedSet.has(p.id),
+    );
+
+    return [aurideContact, ...regularContacts];
+  }, [allKnownContacts, demo.connections, blockedSet]);
+
   const pendingContacts = allKnownContacts.filter(
     (p) => demo.connections[p.id] === "pending" && !blockedSet.has(p.id),
   );
-  const [active, setActive] = useState<string | undefined>(c);
+  const [active, setActive] = useState<string | undefined>(c || "auride");
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
@@ -521,13 +537,11 @@ function Messages() {
                   {p.photo ? (
                     <img
                       src={p.photo}
-                      alt=""
-                      width={768}
-                      height={960}
-                      className="h-10 w-10 object-cover"
+                      alt={p.name}
+                      className="h-10 w-10 rounded-full border border-border object-cover"
                     />
                   ) : (
-                    <span className="flex h-10 w-10 items-center justify-center bg-surface-2 font-display">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 font-display">
                       {p.name[0]}
                     </span>
                   )}
@@ -568,39 +582,59 @@ function Messages() {
                     >
                       <ArrowLeft size={16} />
                     </button>
+                    {person.photo ? (
+                      <img
+                        src={person.photo}
+                        alt={person.name}
+                        className="h-9 w-9 rounded-full border border-border object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 font-display text-xs">
+                        {person.name[0]}
+                      </span>
+                    )}
                     <div>
-                      <p className="font-medium">{person.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{person.name}</p>
+                        {person.id === "auride" && (
+                          <span className="label-mono rounded bg-signal/15 px-1.5 py-0.5 text-[8px] font-bold text-signal">
+                            AI COMPANION
+                          </span>
+                        )}
+                      </div>
                       <span className="label-mono text-xs text-muted-foreground">
                         {person.city}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setShowReport(true)}
-                      title="Report user"
-                      className="label-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      Report
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (
-                          window.confirm(
-                            `Block ${person.name}? You will no longer be able to message each other.`,
-                          )
-                        ) {
-                          await blockUser(person.id);
-                          setActive(undefined);
-                          toast(`Blocked ${person.name}`);
-                        }
-                      }}
-                      title="Block user"
-                      className="label-mono text-xs text-destructive/80 transition-colors hover:text-destructive hover:underline"
-                    >
-                      Block
-                    </button>
-                  </div>
+                  {person.id !== "auride" && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setShowReport(true)}
+                        title="Report user"
+                        className="label-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        Report
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (
+                            window.confirm(
+                              `Block ${person.name}? You will no longer be able to message each other.`,
+                            )
+                          ) {
+                            await blockUser(person.id);
+                            setActive(undefined);
+                            toast(`Blocked ${person.name}`);
+                          }
+                        }}
+                        title="Block user"
+                        className="label-mono text-xs text-destructive/80 transition-colors hover:text-destructive hover:underline"
+                      >
+                        Block
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 space-y-4 overflow-y-auto p-5" aria-live="polite">
                   {msgs.length === 0 && (

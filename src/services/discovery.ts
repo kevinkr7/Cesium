@@ -543,6 +543,7 @@ export async function fetchDiscoveryPeople(
 
       // Add starter/seed profiles so discovery feed has rich exploration alongside real users
       for (const p of people) {
+        if (p.id === "auride") continue; // Excluded from discover, dedicated message companion
         if (seenIds.has(p.id)) continue;
         seenIds.add(p.id);
 
@@ -613,6 +614,7 @@ export async function fetchDiscoveryPeople(
 
   // Deterministic fallback matching based on actual profile dataset
   return people
+    .filter((p) => p.id !== "auride")
     .map((p) => {
       const matchResult = computeMatchScore(myInterests, p.interests, {
         primaryInterests: options?.primaryInterests ?? myInterests.slice(0, 3),

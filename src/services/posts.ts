@@ -350,3 +350,106 @@ export async function deletePost(postId: string, userId: string): Promise<boolea
     return false;
   }
 }
+
+/**
+ * Fetches posts liked by a user for the Liked Posts section in their profile
+ */
+export async function fetchUserLikedPosts(
+  userId: string,
+  currentUserId?: string,
+): Promise<Post[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+
+  try {
+    const { data: likes, error: likesErr } = await sb
+      .from("post_likes")
+      .select("post_id")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (likesErr || !likes || likes.length === 0) {
+      return [];
+    }
+
+    const postIds = likes.map((l) => l.post_id);
+    const { data: postsData, error: postsErr } = await sb
+      .from("posts")
+      .select("*")
+      .in("id", postIds);
+
+    if (postsErr || !postsData) {
+      return [];
+    }
+
+    // Preserve order of when posts were liked
+    const postMap = new Map(postsData.map((p) => [p.id, p]));
+    const orderedPosts = postIds
+      .map((id) => postMap.get(id))
+      .filter((p): p is (typeof postsData)[number] => Boolean(p));
+
+    // Batch fetch author profiles
+    const authorIds = [...new Set(orderedPosts.map((p) => p.user_id))];
+    const profilesMap = new Map<
+      string,
+      { id: string; display_name: string; handle: string; city?: string | null; avatar_path?: string | null }
+    >();
+
+    if (authorIds.length > 0) {
+      const { data: profiles } = await sb
+        .from("profiles")
+        .select("id, display_name, handle, city, avatar_path")
+        .in("id", authorIds);
+
+      if (profiles) {
+        for (const p of profiles) {
+          profilesMap.set(p.id, p);
+        }
+      }
+    }
+
+    let likedPostIds = new Set<string>();
+    if (currentUserId && orderedPosts.length > 0) {
+      const { data: myLikes } = await sb
+        .from("post_likes")
+        .select("post_id")
+        .eq("user_id", currentUserId)
+        .in("post_id", postIds);
+
+      if (myLikes) {
+        likedPostIds = new Set(myLikes.map((l) => l.post_id));
+      }
+    } else {
+      likedPostIds = new Set(postIds);
+    }
+
+    return orderedPosts.map((data) => {
+      const rawProfile = profilesMap.get(data.user_id);
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        mediaUrl: data.media_url,
+        mediaType: data.media_type as "image" | "video",
+        thumbnailUrl: data.thumbnail_url,
+        caption: data.caption,
+        visibility: data.visibility as PostVisibility,
+        likesCount: data.likes_count ?? 0,
+        commentsCount: data.comments_count ?? 0,
+        hasLiked: currentUserId ? likedPostIds.has(data.id) : true,
+        createdAt: data.created_at,
+        author: rawProfile
+          ? {
+              id: rawProfile.id,
+              name: rawProfile.display_name,
+              handle: rawProfile.handle,
+              city: rawProfile.city ?? "Cesium Orbit",
+              avatar: rawProfile.avatar_path,
+            }
+          : undefined,
+      };
+    });
+  } catch {
+    return [];
+  }
+}

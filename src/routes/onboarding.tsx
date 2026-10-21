@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, useRef } from "react";
 import { ArrowUpRight, ArrowLeft, X, Check, Sparkles, Upload } from "lucide-react";
@@ -86,6 +86,14 @@ function MiniConstellation({ items }: { items: string[] }) {
 
 function Onboarding() {
   const demo = useDemo();
+  const nav = useNavigate();
+
+  useEffect(() => {
+    if (demo.onboarded || demo.profile?.onboarding_completed) {
+      nav({ to: "/discover" });
+    }
+  }, [demo.onboarded, demo.profile?.onboarding_completed, nav]);
+
   const [categories, setCategories] = useState<Record<string, string[]>>(interestCategories);
   const [step, setStep] = useState(0);
 

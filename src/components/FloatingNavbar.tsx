@@ -130,15 +130,23 @@ export function FloatingNavbar() {
     };
   }, [session?.id, loadAlerts]);
 
+  const dismissActiveAlerts = async () => {
+    setShowNotifs(false);
+    if (session?.id) {
+      await markAllNotificationsRead(session.id);
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    }
+  };
+
   useEffect(() => {
     if (!showNotifs) return;
     const handleClick = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotifs(false);
+        dismissActiveAlerts();
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowNotifs(false);
+      if (e.key === "Escape") dismissActiveAlerts();
     };
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKeyDown);
@@ -146,7 +154,7 @@ export function FloatingNavbar() {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [showNotifs]);
+  }, [showNotifs, session?.id]);
 
   const handleSignOut = async () => {
     await signOutUser();
@@ -312,7 +320,7 @@ export function FloatingNavbar() {
                 <button
                   type="button"
                   id="nav-notifications-btn"
-                  onClick={() => setShowNotifs((v) => !v)}
+                  onClick={() => (showNotifs ? dismissActiveAlerts() : setShowNotifs(true))}
                   onMouseEnter={() => setHover("notifications")}
                   className={`group relative flex w-full items-center justify-between rounded-lg border px-3 py-2 text-xs transition-all ${
                     showNotifs
@@ -484,7 +492,7 @@ export function FloatingNavbar() {
                 )}
                 <button
                   type="button"
-                  onClick={() => setShowNotifs(false)}
+                  onClick={dismissActiveAlerts}
                   className="rounded p-1 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
                   aria-label="Close alerts"
                 >
@@ -552,78 +560,88 @@ export function FloatingNavbar() {
                   </div>
                 </div>
               )}
-
-              {/* Realtime Notifications List */}
-              <div className="space-y-2">
-                {notifications.length > 0 && (
-                  <span className="label-mono text-[9px] text-muted-foreground/80">
-                    ACTIVITY TIMELINE
-                  </span>
-                )}
-                {notifications.length === 0 && pendingRequests.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <Bell size={24} className="mx-auto mb-2 text-muted-foreground/40" />
-                    <p className="text-xs font-medium text-foreground">Your frequency is clear</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      No pending connection requests or alerts right now.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {notifications.map((n) => {
-                      const isMsg =
-                        n.type === "new_message" || n.title.toLowerCase().includes("message");
-                      return (
-                        <div
-                          key={n.id}
-                          onClick={() => handleNotificationItemClick(n)}
-                          className={`group relative flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 transition-all hover:border-signal/50 hover:bg-surface/50 ${
-                            n.isRead
-                              ? "border-border/40 bg-surface/20 text-muted-foreground"
-                              : "border-signal/30 bg-surface/60 text-foreground"
-                          }`}
-                        >
-                          {!n.isRead && (
-                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-signal shadow-[0_0_6px_rgba(185,255,56,0.8)]" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-1">
-                              <p className="truncate text-xs font-medium text-foreground group-hover:text-signal transition-colors">
-                                {n.title}
-                              </p>
-                              <span className="label-mono shrink-0 text-[8px] text-muted-foreground/60">
-                                {formatTimeAgo(n.createdAt)}
-                              </span>
+              {/* Realtime Active Notifications List */}
+              {(() => {
+                const activeNotifs = notifications.filter((n) => !n.isRead);
+                return (
+                  <div className="space-y-2">
+                    {activeNotifs.length > 0 && (
+                      <span className="label-mono text-[9px] text-muted-foreground/80">
+                        ACTIVE ALERTS
+                      </span>
+                    )}
+                    {activeNotifs.length === 0 && pendingRequests.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <Bell size={24} className="mx-auto mb-2 text-muted-foreground/40" />
+                        <p className="text-xs font-medium text-foreground">Your frequency is clear</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          All caught up. Previous alerts are archived in your History.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {activeNotifs.map((n) => {
+                          const isMsg =
+                            n.type === "new_message" || n.title.toLowerCase().includes("message");
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={() => handleNotificationItemClick(n)}
+                              className="group relative flex cursor-pointer items-start gap-2.5 rounded-lg border border-signal/30 bg-surface/60 p-2.5 text-foreground transition-all hover:border-signal/50 hover:bg-surface/50"
+                            >
+                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-signal shadow-[0_0_6px_rgba(185,255,56,0.8)]" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-1">
+                                  <p className="truncate text-xs font-medium text-foreground transition-colors group-hover:text-signal">
+                                    {n.title}
+                                  </p>
+                                  <span className="label-mono shrink-0 text-[8px] text-muted-foreground/60">
+                                    {formatTimeAgo(n.createdAt)}
+                                  </span>
+                                </div>
+                                {isMsg && (
+                                  <div className="mt-2 flex items-center justify-between gap-2">
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Direct conversation
+                                    </span>
+                                    <span className="flex items-center gap-1 text-[10px] font-semibold text-signal group-hover:underline">
+                                      <span>Open in Messages</span>
+                                      <ArrowUpRight size={10} />
+                                    </span>
+                                  </div>
+                                )}
+                                {n.type === "connection_accepted" && n.sender && (
+                                  <div className="mt-2 flex items-center justify-between gap-2">
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Connected with @{n.sender.handle}
+                                    </span>
+                                    <span className="flex items-center gap-1 text-[10px] font-semibold text-signal group-hover:underline">
+                                      <span>Message</span>
+                                      <ArrowUpRight size={10} />
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            {isMsg && (
-                              <div className="mt-2 flex items-center justify-between gap-2">
-                                <span className="text-[10px] text-muted-foreground">
-                                  Direct conversation
-                                </span>
-                                <span className="flex items-center gap-1 text-[10px] font-semibold text-signal group-hover:underline">
-                                  <span>Open in Messages</span>
-                                  <ArrowUpRight size={10} />
-                                </span>
-                              </div>
-                            )}
-                            {n.type === "connection_accepted" && n.sender && (
-                              <div className="mt-2 flex items-center justify-between gap-2">
-                                <span className="text-[10px] text-muted-foreground">
-                                  Connected with @{n.sender.handle}
-                                </span>
-                                <span className="flex items-center gap-1 text-[10px] font-semibold text-signal group-hover:underline">
-                                  <span>Message</span>
-                                  <ArrowUpRight size={10} />
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="mt-3 border-t border-border/60 pt-2 text-center">
+                      <Link
+                        to="/profile"
+                        search={{ u: undefined }}
+                        onClick={() => dismissActiveAlerts()}
+                        className="label-mono flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground transition-colors hover:text-signal"
+                      >
+                        <span>View Alert History in Profile</span>
+                        <ArrowUpRight size={10} />
+                      </Link>
+                    </div>
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
           </motion.div>
         )}
@@ -642,7 +660,7 @@ export function FloatingNavbar() {
             <button
               type="button"
               id="mobile-notifs-btn"
-              onClick={() => setShowNotifs((v) => !v)}
+              onClick={() => (showNotifs ? dismissActiveAlerts() : setShowNotifs(true))}
               className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface/40 text-foreground transition-colors hover:border-signal/50"
               aria-label="Open notifications"
             >

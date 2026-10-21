@@ -39,6 +39,7 @@ export const people: Person[] = [
     id: "auride",
     name: "Auride",
     handle: "@auri",
+    photo: "/Auride.png",
     city: "Cesium Orbit",
     featured: true,
     bio: "Cesium's resident synthetic intelligence. Bridges strange topics, finds unexpected patterns, and always has time to explore a 2 AM curiosity.",
