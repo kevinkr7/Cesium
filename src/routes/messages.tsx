@@ -8,6 +8,7 @@ import { setDemo, useDemo } from "@/lib/store";
 import {
   getIcebreakerStarters,
   sendChatMessage,
+  broadcastTypingState,
   subscribeToConversationMessages,
   fetchConversationMessages,
   getOrCreateDirectConversation,
@@ -68,6 +69,8 @@ function Messages() {
   const demo = useDemo();
   const blockedSet = new Set(demo.blockedUsers || []);
   const [realContactsMap, setRealContactsMap] = useState<Record<string, ChatContact>>({});
+  const realContactsRef = useRef(realContactsMap);
+  realContactsRef.current = realContactsMap;
 
   // Sync real connections and pending requests from Supabase
   useEffect(() => {
@@ -89,7 +92,7 @@ function Messages() {
 
         const allIds = [...Object.keys(mergedConns), ...pending.incoming.map((p) => p.userId)];
         const missingIds = allIds.filter(
-          (id) => !people.some((p) => p.id === id) && !realContactsMap[id],
+          (id) => !people.some((p) => p.id === id) && !realContactsRef.current[id],
         );
 
         if (missingIds.length > 0) {
@@ -170,11 +173,26 @@ function Messages() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selfTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+
+  const handleTextChange = (val: string) => {
+    setText(val);
+    const currentUserId = demo.session?.id;
+    const targetConvId = activeConvId;
+    if (targetConvId && currentUserId && !demo.session?.demo) {
+      broadcastTypingState(targetConvId, currentUserId, true);
+      if (selfTypingTimerRef.current) clearTimeout(selfTypingTimerRef.current);
+      selfTypingTimerRef.current = setTimeout(() => {
+        broadcastTypingState(targetConvId, currentUserId, false);
+      }, 2500);
+    }
+  };
 
   useEffect(() => {
     if (!active && contacts[0] && typeof window !== "undefined" && window.innerWidth >= 768) {
@@ -276,10 +294,21 @@ function Messages() {
         }
       },
       currentUserId,
+      (isTyping) => {
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        setTyping(isTyping);
+        if (isTyping) {
+          typingTimeoutRef.current = setTimeout(() => {
+            setTyping(false);
+          }, 3000);
+        }
+      },
     );
 
     return () => {
       clearInterval(pollTimer);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (selfTypingTimerRef.current) clearTimeout(selfTypingTimerRef.current);
       unsubscribe();
     };
   }, [active, activeConvId, demo.session?.id, demo.session?.demo]);
@@ -289,6 +318,12 @@ function Messages() {
     if (!v || !active) return;
     const id = active;
     const msgId = crypto.randomUUID();
+
+    // Clear typing broadcast when sending
+    if (selfTypingTimerRef.current) clearTimeout(selfTypingTimerRef.current);
+    if (activeConvId && demo.session?.id && !demo.session.demo) {
+      broadcastTypingState(activeConvId, demo.session.id, false);
+    }
 
     // Optimistically update message list with 'sending' status
     setDemo((s) => ({
@@ -335,11 +370,22 @@ function Messages() {
       toast.error(res.error ?? "Failed to deliver message");
     }
 
-    // If demo or synthetic partner, provide simulated response
-    if (demo.session?.demo || !demo.session) {
+    // If Auride (AI persona) or demo mode, provide simulated response with live typing indicator
+    if (id === "auride" || demo.session?.demo || !demo.session) {
       setTyping(true);
       setTimeout(() => {
         setTyping(false);
+        const auriReplies = [
+          "Fascinating overlap. When you consider the mathematical symmetry of that, it connects directly with how orbits stabilize.",
+          "I was just parsing through an obscure archive on that exact topic. The similarities are uncanny.",
+          "That's the kind of strangely specific thought that makes Cesium feel alive. What triggered that insight?",
+          "Unexpected resonance detected. It's rare to meet someone who looks at that intersection from that angle.",
+        ];
+        const chosenReply =
+          id === "auride"
+            ? auriReplies[Math.floor(Math.random() * auriReplies.length)]!
+            : (replies[Math.floor(Math.random() * replies.length)] ?? "Ha, okay.");
+
         setDemo((s) => ({
           messages: {
             ...s.messages,
@@ -348,14 +394,14 @@ function Messages() {
               {
                 id: crypto.randomUUID(),
                 from: "them",
-                text: replies[Math.floor(Math.random() * replies.length)] ?? "Ha, okay.",
+                text: chosenReply,
                 at: Date.now(),
                 status: "sent" as const,
               },
             ],
           },
         }));
-      }, 1600);
+      }, 1500);
     }
   };
 
@@ -557,9 +603,21 @@ function Messages() {
                     </motion.div>
                   ))}
                   {typing && (
-                    <p className="label-mono flex items-center gap-2 text-muted-foreground">
-                      {person.name.split(" ")[0]} is typing <span className="caret">▍</span>
-                    </p>
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      className="flex w-fit items-center gap-2.5 rounded-lg border border-signal/30 bg-surface/50 px-3 py-2 text-xs text-muted-foreground shadow-sm"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-signal animate-bounce [animation-delay:-0.3s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-signal animate-bounce [animation-delay:-0.15s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-signal animate-bounce" />
+                      </div>
+                      <span className="label-mono text-[11px] text-foreground">
+                        {person.name.split(" ")[0]} is typing…
+                      </span>
+                    </motion.div>
                   )}
                   <div ref={end} />
                 </div>
@@ -578,7 +636,7 @@ function Messages() {
                   <div className="flex items-end gap-3">
                     <textarea
                       value={text}
-                      onChange={(e) => setText(e.target.value)}
+                      onChange={(e) => handleTextChange(e.target.value)}
                       rows={1}
                       placeholder="Write something real…"
                       aria-label="Message"

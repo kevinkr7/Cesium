@@ -58,10 +58,19 @@ export async function signUpUser(data: { name: string; email: string; password: 
     },
   });
 
-  if (error) return { user: null, error: error.message };
+  if (error) return { user: null, needsConfirmation: false, error: error.message };
 
   const sbUser = authData.user;
-  if (!sbUser) return { user: null, error: "Failed to create user account" };
+  if (!sbUser)
+    return { user: null, needsConfirmation: false, error: "Failed to create user account" };
+
+  if (sbUser.identities && sbUser.identities.length === 0) {
+    return {
+      user: null,
+      needsConfirmation: false,
+      error: "An account with this email address already exists. Please sign in instead.",
+    };
+  }
 
   const user: AuthUser = {
     id: sbUser.id,
@@ -69,7 +78,25 @@ export async function signUpUser(data: { name: string; email: string; password: 
     displayName: (sbUser.user_metadata?.["display_name"] as string) || data.name.trim(),
   };
 
-  return { user, error: null };
+  // If no active session was returned by Supabase, the account requires email confirmation
+  const needsConfirmation = !authData.session;
+
+  return { user, needsConfirmation, error: null };
+}
+
+export async function resendConfirmationEmail(
+  email: string,
+): Promise<{ success: boolean; error: string | null }> {
+  const sb = getSupabase();
+  if (!sb) return { success: true, error: null };
+
+  const { error } = await sb.auth.resend({
+    type: "signup",
+    email,
+  });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, error: null };
 }
 
 export async function signInUser(data: { email: string; password: string }) {

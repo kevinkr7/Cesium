@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
-import { ArrowUpRight, ArrowLeft, X, Check, Sparkles } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { ArrowUpRight, ArrowLeft, X, Check, Sparkles, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { interestCategories, people } from "@/lib/data";
 import { setDemo, useDemo } from "@/lib/store";
 import { fetchAllInterests, saveUserInterests } from "@/services/interests";
-import { updateProfile, isHandleAvailable } from "@/services/profiles";
+import { updateProfile, isHandleAvailable, uploadAvatar } from "@/services/profiles";
 import { computeMatchScore } from "@/services/discovery";
 import { RequireAuth } from "@/components/RequireAuth";
 
@@ -103,6 +104,29 @@ function Onboarding() {
   const [city, setCity] = useState("Bengaluru");
   const [handleErr, setHandleErr] = useState("");
   const [handleChecking, setHandleChecking] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Invalid image format", {
+        description: "Please choose a JPEG, PNG, or WebP image.",
+      });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size exceeded", {
+        description: "Profile picture must be under 5MB.",
+      });
+      return;
+    }
+    setAvatarFile(file);
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+  };
 
   // Step 1: Curated Interests
   const [picked, setPicked] = useState<string[]>([]);
@@ -200,6 +224,14 @@ function Onboarding() {
     });
 
     if (demo.session?.id && !demo.session.demo) {
+      let avatarPath: string | undefined = undefined;
+      if (avatarFile) {
+        const uploadRes = await uploadAvatar(demo.session.id, avatarFile);
+        if (uploadRes.url) {
+          avatarPath = uploadRes.url;
+        }
+      }
+
       await saveUserInterests(demo.session.id, picked, niche);
       await updateProfile(demo.session.id, {
         handle: cleanHandle,
@@ -209,7 +241,13 @@ function Onboarding() {
         topics,
         conversation_style: styles,
         onboarding_completed: true,
+        ...(avatarPath ? { avatar_path: avatarPath } : {}),
       });
+      if (avatarPath) {
+        setDemo((s) => ({
+          profile: s.profile ? { ...s.profile, avatar_path: avatarPath } : null,
+        }));
+      }
     }
 
     setSaving(false);
@@ -302,6 +340,82 @@ function Onboarding() {
                       />
                       <label htmlFor="city">City / Current orbit</label>
                       <span className="line" />
+                    </div>
+
+                    {/* Profile Picture (Optional) */}
+                    <div className="flex items-center gap-5 pt-3">
+                      <div
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="group relative flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-surface/40 transition-all hover:border-signal/60"
+                        title="Upload profile picture (optional)"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            avatarInputRef.current?.click();
+                          }
+                        }}
+                      >
+                        {avatarPreview ? (
+                          <img
+                            src={avatarPreview}
+                            alt="Avatar preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-2 text-center">
+                            <Upload
+                              size={18}
+                              className="text-muted-foreground transition-colors group-hover:text-signal"
+                            />
+                            <span className="mt-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                              Add
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            Profile Picture
+                          </span>
+                          <span className="label-mono rounded bg-surface px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                            Optional
+                          </span>
+                        </div>
+                        <p className="max-w-xs text-xs text-muted-foreground">
+                          JPEG, PNG, or WebP up to 5MB. You can skip this or add one later.
+                        </p>
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            className="btn-ghost !px-2.5 !py-1 text-xs text-signal hover:text-signal"
+                          >
+                            {avatarPreview ? "Change photo" : "Select image"}
+                          </button>
+                          {avatarPreview && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAvatarFile(null);
+                                setAvatarPreview(null);
+                              }}
+                              className="btn-ghost !px-2 !py-1 text-xs text-muted-foreground hover:text-destructive"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleAvatarSelect}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

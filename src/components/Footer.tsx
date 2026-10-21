@@ -3,13 +3,12 @@ import { Mark } from "./Mark";
 
 export function Footer() {
   return (
-    <footer className="gutter relative border-t border-border pb-10 pt-20">
+    <footer className="gutter relative overflow-hidden border-t border-border pb-10 pt-20">
       <div className="grid gap-12 md:grid-cols-12">
         <div className="md:col-span-5">
           <Mark className="text-2xl" />
           <p className="mt-6 max-w-xs text-muted-foreground">
-            A social space for the strangely specific. Currently a working demo — nothing you do
-            here leaves your browser.
+            A social space for the strangely specific.
           </p>
         </div>
         <nav className="md:col-span-3" aria-label="Footer">
@@ -50,7 +49,7 @@ export function Footer() {
       </div>
       <p
         aria-hidden
-        className="display text-outline pointer-events-none mt-10 select-none text-[22vw] opacity-20"
+        className="display text-outline pointer-events-none mt-10 select-none overflow-hidden text-center leading-none tracking-tighter text-[clamp(44px,14vw,190px)] opacity-20"
       >
         Cesium
       </p>

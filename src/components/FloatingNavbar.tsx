@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -50,7 +50,9 @@ function formatTimeAgo(dateString: string): string {
 }
 
 export function FloatingNavbar() {
+  const nav = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const isMessagesPage = path.startsWith("/messages");
   const { session, profile } = useDemo();
   const [hover, setHover] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -59,6 +61,8 @@ export function FloatingNavbar() {
   const [pendingRequests, setPendingRequests] = useState<PendingConnectionRequest[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const isMessagesPageRef = useRef(isMessagesPage);
+  isMessagesPageRef.current = isMessagesPage;
 
   useEffect(() => {
     setMounted(true);
@@ -98,10 +102,16 @@ export function FloatingNavbar() {
       session.id,
       (newNotif) => {
         setNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
-        toast(`Alert: ${newNotif.title}`, {
-          description:
-            newNotif.type === "connection_request" ? "New connection request received" : undefined,
-        });
+        const isMsg =
+          newNotif.type === "new_message" || newNotif.title.toLowerCase().includes("message");
+        if (!isMessagesPageRef.current || !isMsg) {
+          toast(`Alert: ${newNotif.title}`, {
+            description:
+              newNotif.type === "connection_request"
+                ? "New connection request received"
+                : undefined,
+          });
+        }
         loadAlerts();
       },
       () => {
@@ -178,6 +188,31 @@ export function FloatingNavbar() {
   const handleReadNotification = async (id: string) => {
     await markNotificationRead(id);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  };
+
+  const handleNotificationItemClick = async (n: AppNotification) => {
+    await handleReadNotification(n.id);
+    setShowNotifs(false);
+
+    // If it's a message or connection accepted, navigate directly to messages
+    const targetUserId =
+      n.sender?.id ||
+      (n.payload?.["sender_id"] as string | undefined) ||
+      (n.payload?.["requester_id"] as string | undefined) ||
+      (n.payload?.["responder_id"] as string | undefined);
+
+    if (
+      n.type === "new_message" ||
+      n.type === "connection_accepted" ||
+      n.title.toLowerCase().includes("message") ||
+      n.title.toLowerCase().includes("connected")
+    ) {
+      if (targetUserId) {
+        nav({ to: "/messages", search: { c: targetUserId } });
+      } else {
+        nav({ to: "/messages", search: { c: undefined } });
+      }
+    }
   };
 
   // Only show Discover, Constellation, and Communities if the user is logged in
@@ -297,19 +332,19 @@ export function FloatingNavbar() {
                       <Bell
                         size={14}
                         className={
-                          showNotifs || unreadCount > 0
+                          showNotifs || (unreadCount > 0 && !isMessagesPage)
                             ? "text-signal"
                             : "text-muted-foreground group-hover:text-signal"
                         }
                       />
-                      {unreadCount > 0 && (
+                      {unreadCount > 0 && !isMessagesPage && (
                         <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-signal shadow-[0_0_8px_rgba(185,255,56,0.9)] animate-pulse" />
                       )}
                     </div>
                     <span>Alerts</span>
                   </div>
 
-                  {unreadCount > 0 ? (
+                  {unreadCount > 0 && !isMessagesPage ? (
                     <span className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-signal animate-pulse" />
                       <span className="label-mono text-[9px] font-semibold text-signal">
@@ -317,7 +352,9 @@ export function FloatingNavbar() {
                       </span>
                     </span>
                   ) : (
-                    <span className="label-mono text-[9px] text-muted-foreground/60">0</span>
+                    <span className="label-mono text-[9px] text-muted-foreground/60">
+                      {unreadCount > 0 && isMessagesPage ? unreadCount : 0}
+                    </span>
                   )}
                 </button>
               </div>
@@ -530,47 +567,57 @@ export function FloatingNavbar() {
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        onClick={() => handleReadNotification(n.id)}
-                        className={`group relative flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 transition-colors ${
-                          n.isRead
-                            ? "border-border/40 bg-surface/20 text-muted-foreground hover:bg-surface/40"
-                            : "border-signal/30 bg-surface/60 text-foreground"
-                        }`}
-                      >
-                        {!n.isRead && (
-                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-signal shadow-[0_0_6px_rgba(185,255,56,0.8)]" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <p className="truncate text-xs font-medium text-foreground">
-                              {n.title}
-                            </p>
-                            <span className="label-mono shrink-0 text-[8px] text-muted-foreground/60">
-                              {formatTimeAgo(n.createdAt)}
-                            </span>
-                          </div>
-                          {n.type === "connection_accepted" && n.sender && (
-                            <div className="mt-2 flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-muted-foreground">
-                                Connected with @{n.sender.handle}
-                              </span>
-                              <Link
-                                to="/messages"
-                                search={{ c: n.sender.id }}
-                                onClick={() => setShowNotifs(false)}
-                                className="flex items-center gap-1 text-[10px] font-semibold text-signal hover:underline"
-                              >
-                                <span>Message</span>
-                                <ArrowUpRight size={10} />
-                              </Link>
-                            </div>
+                    {notifications.map((n) => {
+                      const isMsg =
+                        n.type === "new_message" || n.title.toLowerCase().includes("message");
+                      return (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationItemClick(n)}
+                          className={`group relative flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 transition-all hover:border-signal/50 hover:bg-surface/50 ${
+                            n.isRead
+                              ? "border-border/40 bg-surface/20 text-muted-foreground"
+                              : "border-signal/30 bg-surface/60 text-foreground"
+                          }`}
+                        >
+                          {!n.isRead && (
+                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-signal shadow-[0_0_6px_rgba(185,255,56,0.8)]" />
                           )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="truncate text-xs font-medium text-foreground group-hover:text-signal transition-colors">
+                                {n.title}
+                              </p>
+                              <span className="label-mono shrink-0 text-[8px] text-muted-foreground/60">
+                                {formatTimeAgo(n.createdAt)}
+                              </span>
+                            </div>
+                            {isMsg && (
+                              <div className="mt-2 flex items-center justify-between gap-2">
+                                <span className="text-[10px] text-muted-foreground">
+                                  Direct conversation
+                                </span>
+                                <span className="flex items-center gap-1 text-[10px] font-semibold text-signal group-hover:underline">
+                                  <span>Open in Messages</span>
+                                  <ArrowUpRight size={10} />
+                                </span>
+                              </div>
+                            )}
+                            {n.type === "connection_accepted" && n.sender && (
+                              <div className="mt-2 flex items-center justify-between gap-2">
+                                <span className="text-[10px] text-muted-foreground">
+                                  Connected with @{n.sender.handle}
+                                </span>
+                                <span className="flex items-center gap-1 text-[10px] font-semibold text-signal group-hover:underline">
+                                  <span>Message</span>
+                                  <ArrowUpRight size={10} />
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -598,9 +645,11 @@ export function FloatingNavbar() {
             >
               <Bell
                 size={18}
-                className={unreadCount > 0 ? "text-signal" : "text-muted-foreground"}
+                className={
+                  unreadCount > 0 && !isMessagesPage ? "text-signal" : "text-muted-foreground"
+                }
               />
-              {unreadCount > 0 && (
+              {unreadCount > 0 && !isMessagesPage && (
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-signal shadow-[0_0_8px_rgba(185,255,56,0.9)] animate-pulse" />
               )}
             </button>
@@ -623,7 +672,7 @@ export function FloatingNavbar() {
         onClose={() => setOpen(false)}
         signedIn={!!session}
         onSignOut={handleSignOut}
-        unreadCount={unreadCount}
+        unreadCount={isMessagesPage ? 0 : unreadCount}
         onOpenNotifs={() => setShowNotifs(true)}
       />
     </>

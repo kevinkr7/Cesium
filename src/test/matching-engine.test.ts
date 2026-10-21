@@ -206,9 +206,9 @@ describe("Phase 6: The Overlap Engine", () => {
     expect(all.length).toBeGreaterThan(0);
 
     // Search query matching
-    const filteredSearch = await fetchDiscoveryPeople(["Creative coding"], null, "Mira");
+    const filteredSearch = await fetchDiscoveryPeople(["Creative coding"], null, "Auri");
     expect(filteredSearch.length).toBeGreaterThan(0);
-    expect(filteredSearch.some((c) => c.name.toLowerCase().includes("mira"))).toBe(true);
+    expect(filteredSearch.some((c) => c.name.toLowerCase().includes("auri"))).toBe(true);
 
     // Search query non-matching
     const noResults = await fetchDiscoveryPeople(

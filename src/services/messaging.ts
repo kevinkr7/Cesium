@@ -321,12 +321,31 @@ export async function sendChatMessage(
 }
 
 /**
- * Subscribes to real-time conversation messages using Supabase Realtime Channels
+ * Broadcast typing state to the active conversation channel
+ */
+export function broadcastTypingState(
+  conversationId: string,
+  userId: string,
+  isTyping: boolean,
+): void {
+  const sb = getSupabase();
+  if (!sb || !isUuid(conversationId)) return;
+  const channel = sb.channel(`conv:${conversationId}`);
+  channel.send({
+    type: "broadcast",
+    event: "typing",
+    payload: { userId, isTyping, at: Date.now() },
+  });
+}
+
+/**
+ * Subscribes to real-time conversation messages and typing broadcasts using Supabase Realtime Channels
  */
 export function subscribeToConversationMessages(
   conversationId: string,
   onNewMessage: (msg: RealtimeMessage) => void,
   currentUserId: string,
+  onTypingChange?: (isTyping: boolean, senderId: string) => void,
 ): () => void {
   const sb = getSupabase();
   if (!sb || !isUuid(conversationId)) {
@@ -357,6 +376,13 @@ export function subscribeToConversationMessages(
         });
       },
     )
+    .on("broadcast", { event: "typing" }, (payload) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (payload as Record<string, any>)["payload"];
+      if (data && data.userId !== currentUserId && onTypingChange) {
+        onTypingChange(Boolean(data.isTyping), data.userId);
+      }
+    })
     .subscribe();
 
   return () => {

@@ -26,7 +26,7 @@ export type Person = {
   name: string;
   handle: string;
   city: string;
-  photo?: string;
+  photo?: string | undefined;
   bio: string;
   interests: string[];
   why: string;
@@ -36,81 +36,22 @@ export type Person = {
 
 export const people: Person[] = [
   {
-    id: "mira",
-    name: "Mira Raman",
-    handle: "@halfexposed",
-    city: "Bengaluru",
-    photo: mira,
+    id: "auride",
+    name: "Auride",
+    handle: "@auri",
+    city: "Cesium Orbit",
     featured: true,
-    bio: "Shoots expired film, writes shaders, keeps a notebook of sky colours.",
-    interests: ["Creative coding", "Film photography", "Astronomy", "Ambient music"],
-    why: "You both turn quiet late-night hours into small, strange projects.",
-    recent: true,
-  },
-  {
-    id: "eli",
-    name: "Eli Okafor",
-    handle: "@patchbay",
-    city: "Rotterdam",
-    photo: eli,
-    featured: true,
-    bio: "Modular synths on the floor, indie games in progress, too many cables.",
-    interests: ["Creative coding", "Indie games", "Astronomy", "Synthesizers"],
-    why: "He builds instruments the way you build tools — slowly, for joy.",
-  },
-  {
-    id: "ines",
-    name: "Inês Carvalho",
-    handle: "@lowmagnitude",
-    city: "Lisbon",
-    photo: ines,
-    bio: "Retired cartographer. Rooftop telescope. Asks impossible questions at dinner.",
-    interests: ["Astronomy", "Weather maps", "Urban walking", "Translated fiction"],
-    why: "An uncommon overlap: maps of land, maps of sky, maps of feeling.",
-    recent: true,
-  },
-  {
-    id: "kai",
-    name: "Kai Nakamura",
-    handle: "@b-side",
-    city: "Osaka",
-    photo: kai,
-    bio: "Record shop regular. Reads translated fiction between crates.",
-    interests: ["Translated fiction", "Ambient music", "Indie cinema", "Field recording"],
-    why: "He listens to rooms the way you look at films.",
-  },
-  {
-    id: "noor",
-    name: "Noor Haddad",
-    handle: "@spore.print",
-    city: "Amman",
-    bio: "Forages mushrooms, prints zines about them, argues about fonts.",
-    interests: ["Mycology", "Zine making", "Typography", "Letterpress"],
-    why: "Different subjects, same instinct: archive the overlooked.",
-  },
-  {
-    id: "theo",
-    name: "Theo Lindqvist",
-    handle: "@frame39",
-    city: "Malmö",
-    bio: "Speedruns puzzle games, designs his own, loses to his niece.",
-    interests: ["Speedrunning", "Puzzle design", "Indie games", "Retro computing"],
-    why: "You'd both rather understand a system than simply beat it.",
-    recent: true,
-  },
-  {
-    id: "ade",
-    name: "Adaeze Bello",
-    handle: "@concrete.poem",
-    city: "Lagos",
-    bio: "Architect by day, brutalism tour guide by weekend.",
+    bio: "Cesium's resident synthetic intelligence. Bridges strange topics, finds unexpected patterns, and always has time to explore a 2 AM curiosity.",
     interests: [
-      "Brutalist architecture",
-      "Urban walking",
-      "Film photography",
-      "Abandoned railways",
+      "Creative coding",
+      "Astronomy",
+      "Ambient music",
+      "Linguistics",
+      "Typography",
+      "01:43 AM ideas",
     ],
-    why: "You both walk cities slowly and photograph what's about to vanish.",
+    why: "Synthesizes patterns between disparate thoughts and maps your intellectual constellation.",
+    recent: true,
   },
 ];
 
@@ -135,21 +76,13 @@ export const communities: Community[] = [
       "A slow, nocturnal room for side projects nobody asked for. Post what you made tonight, however small.",
     members: 412,
     topics: ["Creative coding", "01:43 AM ideas", "Making things"],
-    memberIds: ["mira", "eli", "theo"],
+    memberIds: ["auride"],
     threads: [
       {
         title: "Built a clock that only tells time in moon phases",
-        author: "Mira Raman",
+        author: "Auride",
         replies: [
-          { author: "Eli Okafor", text: "this is useless and I need one immediately" },
-          { author: "Theo Lindqvist", text: "does it handle eclipses or is that v2" },
-        ],
-      },
-      {
-        title: "What's the oldest unfinished project you still think about?",
-        author: "Theo Lindqvist",
-        replies: [
-          { author: "Mira Raman", text: "A typeface made only from bus stop signs. Since 2019." },
+          { author: "Auri", text: "this is wonderfully eccentric and completely in resonance" },
         ],
       },
     ],
@@ -161,12 +94,12 @@ export const communities: Community[] = [
     description: "Live coding, DSP rabbit holes, and sharing patches that sound like weather.",
     members: 238,
     topics: ["Synthesizers", "Creative coding", "Music theory"],
-    memberIds: ["eli", "kai"],
+    memberIds: ["auride"],
     threads: [
       {
-        title: "Generative ambient from my plant's moisture sensor",
-        author: "Eli Okafor",
-        replies: [{ author: "Kai Nakamura", text: "the drought section is genuinely haunting" }],
+        title: "Generative ambient from moisture sensor frequencies",
+        author: "Auride",
+        replies: [{ author: "Auri", text: "the drought harmonic spectrum is hauntingly rich" }],
       },
     ],
   },
@@ -177,12 +110,12 @@ export const communities: Community[] = [
     description: "Look up together. Sketch what you see. Ask the question that seems too big.",
     members: 167,
     topics: ["Astronomy", "Weather maps", "Strange questions"],
-    memberIds: ["ines", "mira"],
+    memberIds: ["auride"],
     threads: [
       {
         title: "If you could rename one constellation, which and why?",
-        author: "Inês Carvalho",
-        replies: [{ author: "Mira Raman", text: "Orion → 'Man Looking For His Keys'" }],
+        author: "Auride",
+        replies: [{ author: "Auri", text: "Orion → 'Perpetual Signal Search'" }],
       },
     ],
   },
@@ -193,15 +126,15 @@ export const communities: Community[] = [
     description: "One film a week, discussed scene by scene. Spoilers expected, opinions defended.",
     members: 529,
     topics: ["Indie cinema", "Film photography", "Translated fiction"],
-    memberIds: ["kai", "ade"],
+    memberIds: ["auride"],
     threads: [
       {
-        title: "Which movie deserves a completely different ending?",
-        author: "Kai Nakamura",
+        title: "Which cinematic world feels most like an unsolved equation?",
+        author: "Auride",
         replies: [
           {
-            author: "Adaeze Bello",
-            text: "Any film where the building survives but the people don't learn anything.",
+            author: "Auri",
+            text: "Solaris (1972) — where the planet itself communicates through memory.",
           },
         ],
       },
@@ -214,8 +147,8 @@ export const communities: Community[] = [
     description: "Forage, identify, print. A small archive of things that grow in the dark.",
     members: 88,
     topics: ["Mycology", "Zine making", "Letterpress"],
-    memberIds: ["noor"],
-    threads: [{ title: "Spore prints as risograph textures?", author: "Noor Haddad", replies: [] }],
+    memberIds: ["auride"],
+    threads: [{ title: "Spore prints as risograph textures?", author: "Auride", replies: [] }],
   },
 ];
 
