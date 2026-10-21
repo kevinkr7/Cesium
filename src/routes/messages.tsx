@@ -370,22 +370,54 @@ function Messages() {
       toast.error(res.error ?? "Failed to deliver message");
     }
 
-    // If Auride (AI persona) or demo mode, provide simulated response with live typing indicator
-    if (id === "auride" || demo.session?.demo || !demo.session) {
+    // If Auride (AI companion), connect to the /api/auride/chat engine
+    if (id === "auride") {
+      setTyping(true);
+      try {
+        const currentThread = demo.messages[id] ?? [];
+        const history = currentThread.map((m: { from: string; text: string }) => ({
+          from: m.from,
+          text: m.text,
+        }));
+        const aiRes = await fetch("/api/auride/chat", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            message: v,
+            history,
+            userInterests: demo.interests || [],
+          }),
+        });
+
+        const aiData = await aiRes.json();
+        const replyText =
+          aiData.reply ||
+          "Fascinating connection. I can feel the resonance across the constellation.";
+
+        setTyping(false);
+        setDemo((s) => ({
+          messages: {
+            ...s.messages,
+            [id]: [
+              ...(s.messages[id] ?? []),
+              {
+                id: crypto.randomUUID(),
+                from: "them",
+                text: replyText,
+                at: Date.now(),
+                status: "sent" as const,
+              },
+            ],
+          },
+        }));
+      } catch {
+        setTyping(false);
+      }
+    } else if (demo.session?.demo || !demo.session) {
       setTyping(true);
       setTimeout(() => {
         setTyping(false);
-        const auriReplies = [
-          "Fascinating overlap. When you consider the mathematical symmetry of that, it connects directly with how orbits stabilize.",
-          "I was just parsing through an obscure archive on that exact topic. The similarities are uncanny.",
-          "That's the kind of strangely specific thought that makes Cesium feel alive. What triggered that insight?",
-          "Unexpected resonance detected. It's rare to meet someone who looks at that intersection from that angle.",
-        ];
-        const chosenReply =
-          id === "auride"
-            ? auriReplies[Math.floor(Math.random() * auriReplies.length)]!
-            : (replies[Math.floor(Math.random() * replies.length)] ?? "Ha, okay.");
-
+        const chosenReply = replies[Math.floor(Math.random() * replies.length)] ?? "Ha, okay.";
         setDemo((s) => ({
           messages: {
             ...s.messages,

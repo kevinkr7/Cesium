@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   Bell,
   X,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Mark } from "./Mark";
@@ -32,9 +33,10 @@ import {
 
 const items = [
   { to: "/", label: "Home", icon: Home, num: "01" },
-  { to: "/discover", label: "Discover", icon: Compass, num: "02" },
-  { to: "/constellation", label: "Constellation", icon: Sparkles, num: "03" },
-  { to: "/communities", label: "Communities", icon: Users, num: "04" },
+  { to: "/feed", label: "Signals", icon: Radio, num: "02" },
+  { to: "/discover", label: "Discover", icon: Compass, num: "03" },
+  { to: "/constellation", label: "Constellation", icon: Sparkles, num: "04" },
+  { to: "/communities", label: "Communities", icon: Users, num: "05" },
 ] as const;
 
 function formatTimeAgo(dateString: string): string {
@@ -393,9 +395,10 @@ export function FloatingNavbar() {
 
               <div className="flex items-center justify-between border-t border-border/60 pt-3">
                 <Link
-                  to="/constellation"
+                  to="/profile"
+                  search={{ u: undefined }}
                   className="flex min-w-0 items-center gap-2 pr-1 transition-opacity hover:opacity-80"
-                  title="View your constellation profile"
+                  title="View your visual archive and profile"
                 >
                   {profile?.avatar_path ? (
                     <img

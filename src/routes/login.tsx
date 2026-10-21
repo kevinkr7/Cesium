@@ -313,7 +313,7 @@ function Auth() {
   };
 
   return (
-    <section data-hydrated={hydrated} className="grid min-h-[100svh] md:grid-cols-[58fr_42fr]">
+    <section data-hydrated={hydrated} className="grid h-[100dvh] max-h-[100dvh] overflow-hidden md:grid-cols-[58fr_42fr]">
       <div className="relative hidden overflow-hidden border-r border-border md:block">
         <motion.div
           className="absolute inset-0 p-10 pt-32"
@@ -333,67 +333,67 @@ function Auth() {
         </div>
       </div>
 
-      <div className="gutter flex flex-col justify-center py-32 md:px-[5vw]">
+      <div className="gutter flex h-full flex-col justify-center py-4 md:py-6 md:px-[4vw] lg:px-[5vw] overflow-y-auto md:overflow-hidden">
         <AnimatePresence mode="wait">
           {awaitingConfirmation ? (
             <motion.div
               key="awaiting-confirmation"
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-6"
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-4"
             >
               <div className="relative inline-flex items-center justify-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-signal/50 bg-signal/10 text-signal shadow-[0_0_20px_rgba(185,255,56,0.25)]">
-                  <Mail size={28} />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-signal/50 bg-signal/10 text-signal shadow-[0_0_16px_rgba(185,255,56,0.25)]">
+                  <Mail size={22} />
                 </div>
-                <span className="absolute -right-1 -top-1 flex h-4 w-4">
+                <span className="absolute -right-1 -top-1 flex h-3 w-3">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal opacity-75" />
-                  <span className="relative inline-flex h-4 w-4 rounded-full bg-signal" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-signal" />
                 </span>
               </div>
 
               <div>
-                <p className="label-mono text-signal">02 // Verification Pending</p>
-                <h1 className="display mt-3 text-4xl md:text-5xl">Check your inbox.</h1>
-                <p className="mt-3 text-muted-foreground">
+                <p className="label-mono text-xs text-signal">02 // Verification Pending</p>
+                <h1 className="display mt-1 text-2xl md:text-3xl leading-tight">Check your inbox.</h1>
+                <p className="mt-1 text-xs text-muted-foreground">
                   We've dispatched a confirmation link to:
                 </p>
-                <div className="mt-3 inline-block rounded-lg border border-signal/40 bg-signal/10 px-4 py-2 font-mono text-sm font-semibold text-signal">
+                <div className="mt-2 inline-block rounded-lg border border-signal/40 bg-signal/10 px-3 py-1 font-mono text-xs font-semibold text-signal">
                   {confirmedEmail}
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-xl border border-border/80 bg-surface/40 p-4 text-xs text-muted-foreground">
+              <div className="space-y-1.5 rounded-lg border border-border/80 bg-surface/40 p-3 text-xs text-muted-foreground">
                 <p>
                   Click the link inside the email to verify your address and activate your Cesium
                   orbit.
                 </p>
-                <p className="text-[11px] text-muted-foreground/80">
+                <p className="text-[10px] text-muted-foreground/80">
                   This window will automatically detect your confirmation once accepted.
                 </p>
               </div>
 
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2 pt-1">
                 <button
                   type="button"
                   onClick={handleResend}
                   disabled={resending}
-                  className="btn-signal flex w-full items-center justify-center gap-2 py-2.5 text-xs font-semibold"
+                  className="btn-signal flex w-full items-center justify-center gap-2 py-2 text-xs font-semibold"
                 >
-                  <RotateCw size={14} className={resending ? "animate-spin" : ""} />
+                  <RotateCw size={13} className={resending ? "animate-spin" : ""} />
                   <span>{resending ? "Resending link…" : "Resend confirmation email"}</span>
                 </button>
 
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center justify-between pt-1">
                   <button
                     type="button"
                     onClick={() => {
                       setAwaitingConfirmation(false);
                       setMode("login");
                     }}
-                    className="label-mono text-xs text-muted-foreground transition-colors hover:text-signal"
+                    className="label-mono text-[11px] text-muted-foreground transition-colors hover:text-signal"
                   >
                     Already confirmed? Sign in →
                   </button>
@@ -403,7 +403,7 @@ function Auth() {
                       setAwaitingConfirmation(false);
                       setMode("register");
                     }}
-                    className="label-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    className="label-mono text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Change email
                   </button>
@@ -413,30 +413,34 @@ function Auth() {
           ) : (
             <motion.div
               key={mode}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: done ? 0.3 : 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
-              <p className="label-mono text-muted-foreground">
+              <p className="label-mono text-xs text-muted-foreground">
                 {mode === "login" ? "01 / Sign in" : "02 / Register"}
               </p>
-              <h1 className="display mt-4 text-5xl md:text-6xl">
+              <h1 className="display mt-1 text-2xl md:text-3xl leading-tight">
                 {mode === "login" ? "Welcome back." : "Come as you are."}
               </h1>
-              <p className="mt-3 text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {mode === "login"
                   ? "Your people are still here."
                   : "There's more to you than a bio."}
               </p>
 
               {errors.general && (
-                <p className="label-mono mt-4 border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+                <p className="label-mono mt-2 border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
                   ↳ {errors.general}
                 </p>
               )}
 
-              <form onSubmit={submit} noValidate className="mt-10 space-y-6">
+              <form
+                onSubmit={submit}
+                noValidate
+                className={mode === "login" ? "mt-4 space-y-3" : "mt-3 space-y-2.5"}
+              >
                 {mode === "register" && (
                   <Field
                     id="name"
@@ -481,8 +485,8 @@ function Auth() {
                   />
                 )}
                 {mode === "login" && (
-                  <div className="flex items-center justify-between text-sm">
-                    <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground hover:text-foreground">
                       <input
                         type="checkbox"
                         checked={f.remember}
@@ -503,7 +507,7 @@ function Auth() {
                 <button
                   type="submit"
                   disabled={busy || done}
-                  className="btn-signal w-full justify-between"
+                  className="btn-signal w-full justify-between py-2.5 text-xs"
                 >
                   <span>
                     {done
@@ -515,17 +519,17 @@ function Auth() {
                           : "Create account"}
                   </span>
                   {busy ? (
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    <ArrowUpRight size={18} />
+                    <ArrowUpRight size={16} />
                   )}
                 </button>
 
-                <div className="relative my-6 flex items-center justify-center">
+                <div className="relative my-3 flex items-center justify-center">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-border/60" />
                   </div>
-                  <span className="relative bg-background px-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <span className="relative bg-background px-2.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
                     Or continue with
                   </span>
                 </div>
@@ -535,9 +539,9 @@ function Auth() {
                   id="google-signin-btn"
                   onClick={handleGoogleSignIn}
                   disabled={busy || done}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border/80 bg-surface/50 py-3 text-xs font-medium uppercase tracking-wider text-foreground transition-all hover:border-signal/50 hover:bg-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-border/80 bg-surface/50 py-2.5 text-xs font-medium uppercase tracking-wider text-foreground transition-all hover:border-signal/50 hover:bg-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50"
                 >
-                  <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                  <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -559,7 +563,7 @@ function Auth() {
                 </button>
               </form>
 
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <button
                   type="button"
                   id="toggle-auth-mode"
@@ -567,7 +571,7 @@ function Auth() {
                     setMode(mode === "login" ? "register" : "login");
                     setErrors({});
                   }}
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  className="text-xs text-muted-foreground hover:text-foreground"
                 >
                   {mode === "login" ? "New here? " : "Already orbiting? "}
                   <span className="text-signal">
@@ -575,7 +579,7 @@ function Auth() {
                   </span>
                 </button>
               </div>
-              <p className="label-mono mt-10 border-t border-border pt-4 text-muted-foreground">
+              <p className="label-mono mt-3.5 border-t border-border/80 pt-2 text-[10px] text-muted-foreground/80">
                 Encrypted credentials · Persistent session via Supabase Auth
               </p>
             </motion.div>

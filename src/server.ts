@@ -97,6 +97,18 @@ export default {
         );
       }
 
+      if (url.pathname === "/api/media/upload" && request.method === "POST") {
+        const { handleMediaUpload } = await import("./server/media");
+        const uploadRes = await handleMediaUpload(request, env);
+        return applySecurityHeaders(uploadRes);
+      }
+
+      if (url.pathname === "/api/auride/chat" && request.method === "POST") {
+        const { handleAurideChat } = await import("./server/auride");
+        const chatRes = await handleAurideChat(request, env);
+        return applySecurityHeaders(chatRes);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);
