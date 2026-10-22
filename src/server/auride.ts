@@ -5,6 +5,11 @@
  * Server-side AI completion engine grounded in Cesium's Constellation Graph.
  * Supports Google Gemini 2.5 Flash / 2.0 Flash / 1.5 Flash with contextual graph
  * enrichment and diagnostic fallback synthesis.
+ *
+ * Resilient multi-container environment lookup:
+ * Inspects passed env, globalThis.__env__ (Nitro Cloudflare preset),
+ * request.runtime.cloudflare.env, process.env, and globalThis with case-insensitive
+ * matching (e.g. GEMINI_API_KEY, gemini_api_key).
  */
 
 export type ChatTurn = {
@@ -17,29 +22,114 @@ type GeminiTurn = {
   parts: { text: string }[];
 };
 
-export function getGeminiApiKey(env?: unknown): string {
-  const envObj = (typeof env === "object" && env !== null ? env : {}) as Record<string, string>;
-  const procEnv = (typeof process !== "undefined" && process.env ? process.env : {}) as Record<string, string>;
-  const metaEnv = (typeof import.meta !== "undefined" && (import.meta as unknown as { env?: Record<string, string> }).env ? (import.meta as unknown as { env: Record<string, string> }).env : {}) as Record<string, string>;
+export type ApiKeyMatch = {
+  key: string;
+  source: string;
+  matchedName: string;
+};
 
-  return (
-    envObj["GEMINI_API_KEY"] ||
-    envObj["GOOGLE_API_KEY"] ||
-    envObj["VITE_GEMINI_API_KEY"] ||
-    procEnv["GEMINI_API_KEY"] ||
-    procEnv["GOOGLE_API_KEY"] ||
-    procEnv["VITE_GEMINI_API_KEY"] ||
-    metaEnv["GEMINI_API_KEY"] ||
-    metaEnv["GOOGLE_API_KEY"] ||
-    metaEnv["VITE_GEMINI_API_KEY"] ||
-    ""
-  ).trim();
+function searchKeyInRecord(
+  record: unknown,
+  targetKeys: string[],
+  sourceLabel: string,
+): ApiKeyMatch | null {
+  if (!record || typeof record !== "object") return null;
+  const obj = record as Record<string, unknown>;
+
+  // 1. Exact match
+  for (const t of targetKeys) {
+    const val = obj[t];
+    if (typeof val === "string" && val.trim().length > 0) {
+      return { key: val.trim(), source: sourceLabel, matchedName: t };
+    }
+  }
+
+  // 2. Case-insensitive match (e.g. user typed gemini_api_key in Cloudflare secrets)
+  const lowerTargets = new Set(targetKeys.map((k) => k.toLowerCase()));
+  for (const [k, v] of Object.entries(obj)) {
+    if (lowerTargets.has(k.toLowerCase()) && typeof v === "string" && v.trim().length > 0) {
+      return { key: v.trim(), source: sourceLabel, matchedName: k };
+    }
+  }
+
+  return null;
 }
 
-export function getGeminiModel(env?: unknown): string {
-  const envObj = (typeof env === "object" && env !== null ? env : {}) as Record<string, string>;
-  const procEnv = (typeof process !== "undefined" && process.env ? process.env : {}) as Record<string, string>;
-  return (envObj["GEMINI_MODEL"] || procEnv["GEMINI_MODEL"] || "gemini-2.5-flash").trim();
+export function resolveGeminiApiKey(env?: unknown, request?: Request): ApiKeyMatch {
+  const targetKeys = [
+    "GEMINI_API_KEY",
+    "gemini_api_key",
+    "GOOGLE_API_KEY",
+    "google_api_key",
+    "VITE_GEMINI_API_KEY",
+    "vite_gemini_api_key",
+    "VITE_GOOGLE_API_KEY",
+    "vite_google_api_key",
+  ];
+
+  const containers: Array<{ label: string; container: unknown }> = [
+    { label: "passed_env", container: env },
+    {
+      label: "globalThis.__env__",
+      container: (globalThis as unknown as { __env__?: unknown }).__env__,
+    },
+    {
+      label: "request.runtime.cloudflare.env",
+      container: (request as unknown as { runtime?: { cloudflare?: { env?: unknown } } })?.runtime
+        ?.cloudflare?.env,
+    },
+    { label: "request.env", container: (request as unknown as { env?: unknown })?.env },
+    { label: "globalThis.env", container: (globalThis as unknown as { env?: unknown }).env },
+    { label: "process.env", container: typeof process !== "undefined" ? process.env : undefined },
+    {
+      label: "globalThis.process.env",
+      container: (globalThis as unknown as { process?: { env?: unknown } })?.process?.env,
+    },
+    {
+      label: "import.meta.env",
+      container: typeof import.meta !== "undefined" ? (import.meta as unknown as { env?: unknown })?.env : undefined,
+    },
+    { label: "globalThis", container: globalThis },
+  ];
+
+  for (const c of containers) {
+    const match = searchKeyInRecord(c.container, targetKeys, c.label);
+    if (match) return match;
+  }
+
+  return { key: "", source: "none", matchedName: "none" };
+}
+
+export function getGeminiApiKey(env?: unknown, request?: Request): string {
+  return resolveGeminiApiKey(env, request).key;
+}
+
+export function getGeminiModel(env?: unknown, request?: Request): string {
+  const targetKeys = ["GEMINI_MODEL", "gemini_model", "VITE_GEMINI_MODEL", "vite_gemini_model"];
+  const containers: Array<{ label: string; container: unknown }> = [
+    { label: "passed_env", container: env },
+    {
+      label: "globalThis.__env__",
+      container: (globalThis as unknown as { __env__?: unknown }).__env__,
+    },
+    {
+      label: "request.runtime.cloudflare.env",
+      container: (request as unknown as { runtime?: { cloudflare?: { env?: unknown } } })?.runtime
+        ?.cloudflare?.env,
+    },
+    { label: "process.env", container: typeof process !== "undefined" ? process.env : undefined },
+    {
+      label: "import.meta.env",
+      container: typeof import.meta !== "undefined" ? (import.meta as unknown as { env?: unknown })?.env : undefined,
+    },
+  ];
+
+  for (const c of containers) {
+    const match = searchKeyInRecord(c.container, targetKeys, c.label);
+    if (match) return match.key;
+  }
+
+  return "gemini-2.5-flash";
 }
 
 /**
@@ -93,18 +183,45 @@ function formatGeminiContents(history: ChatTurn[], currentMessage: string): Gemi
 }
 
 export async function handleAurideStatus(request: Request, env: unknown): Promise<Response> {
-  const apiKey = getGeminiApiKey(env);
-  const preferredModel = getGeminiModel(env);
+  const keyInfo = resolveGeminiApiKey(env, request);
+  const preferredModel = getGeminiModel(env, request);
+
+  const sanitizeKeys = (obj: unknown): string[] => {
+    if (!obj || typeof obj !== "object") return [];
+    return Object.keys(obj as object).map((k) => {
+      const lower = k.toLowerCase();
+      if (lower.includes("key") || lower.includes("secret") || lower.includes("token")) {
+        return `${k}:[MASKED]`;
+      }
+      return k;
+    });
+  };
 
   return new Response(
     JSON.stringify({
       status: "online",
       service: "auride_ai",
-      geminiConfigured: Boolean(apiKey),
+      geminiConfigured: Boolean(keyInfo.key),
       preferredModel,
-      keyConfigured: Boolean(apiKey),
-      keyPreview: apiKey ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}` : null,
-      runtime: typeof process !== "undefined" && process.env ? "node/process" : "edge/worker",
+      keyPreview: keyInfo.key ? `${keyInfo.key.slice(0, 4)}...${keyInfo.key.slice(-4)}` : null,
+      source: keyInfo.source,
+      matchedKeyName: keyInfo.matchedName,
+      diagnostics: {
+        hasPassedEnv: Boolean(env && typeof env === "object" && Object.keys(env).length > 0),
+        hasGlobalThisEnv: Boolean((globalThis as unknown as { __env__?: unknown }).__env__),
+        hasRequestCloudflareEnv: Boolean(
+          (request as unknown as { runtime?: { cloudflare?: { env?: unknown } } })?.runtime?.cloudflare?.env,
+        ),
+        hasProcessEnv: Boolean(typeof process !== "undefined" && process.env),
+        detectedVariables: {
+          passedEnv: sanitizeKeys(env),
+          globalThisEnv: sanitizeKeys((globalThis as unknown as { __env__?: unknown }).__env__),
+          requestCloudflareEnv: sanitizeKeys(
+            (request as unknown as { runtime?: { cloudflare?: { env?: unknown } } })?.runtime?.cloudflare?.env,
+          ),
+          processEnv: sanitizeKeys(typeof process !== "undefined" ? process.env : undefined),
+        },
+      },
     }),
     {
       status: 200,
@@ -133,8 +250,9 @@ export async function handleAurideChat(request: Request, env: unknown): Promise<
       ? body.userInterests.slice(0, 8)
       : ["Creative coding", "Astronomy", "Typography"];
 
-    const apiKey = getGeminiApiKey(env);
-    const preferredModel = getGeminiModel(env);
+    const keyInfo = resolveGeminiApiKey(env, request);
+    const apiKey = keyInfo.key;
+    const preferredModel = getGeminiModel(env, request);
 
     const systemPrompt = `You are Auride (@auri), Cesium's resident synthetic intelligence in Cesium Orbit.
 Cesium is an unconventional social network connecting thinkers, craftspeople, and hackers across niche obsessions, creative technologies, and cross-domain bridges.
@@ -188,6 +306,8 @@ Your persona:
                 provider: "gemini",
                 model,
                 latencyMs: Date.now() - startTime,
+                source: keyInfo.source,
+                matchedKey: keyInfo.matchedName,
               }),
               {
                 status: 200,
@@ -200,7 +320,7 @@ Your persona:
           lastErrorDetails = `Gemini API HTTP ${geminiRes.status} on model ${model}: ${errorBody.slice(0, 300)}`;
           console.error(`[Auride Gemini Error] (${model}):`, lastErrorDetails);
 
-          // If it was a model not found (404), try next model in loop; otherwise break to avoid wasting time
+          // If it was a model not found (404), try next model in loop; otherwise break
           if (geminiRes.status !== 404) {
             break;
           }
@@ -210,7 +330,8 @@ Your persona:
         }
       }
     } else {
-      lastErrorDetails = "No GEMINI_API_KEY or GOOGLE_API_KEY found in server environment variables.";
+      lastErrorDetails =
+        "No GEMINI_API_KEY found in server environment variables (checked passed env, globalThis.__env__, and request.runtime.cloudflare.env).";
       console.warn("[Auride Engine Warning]:", lastErrorDetails);
     }
 

@@ -77,6 +77,8 @@ function Messages() {
     model?: string;
     error?: string;
     latencyMs?: number;
+    source?: string;
+    matchedKey?: string;
   }>({ provider: "checking" });
 
   useEffect(() => {
@@ -89,12 +91,16 @@ function Messages() {
           setAurideEngine({
             provider: "gemini",
             model: data.preferredModel || "gemini-2.5-flash",
+            source: data.source,
+            matchedKey: data.matchedKeyName,
           });
         } else {
           setAurideEngine({
             provider: "cesium_graph_synthesizer",
             model: "offline_fallback",
-            error: "No GEMINI_API_KEY in environment",
+            error: data.error || "No GEMINI_API_KEY in environment",
+            source: data.source,
+            matchedKey: data.matchedKeyName,
           });
         }
       })
@@ -444,6 +450,8 @@ function Messages() {
           model: aiData.model,
           error: aiData.error,
           latencyMs: aiData.latencyMs,
+          source: aiData.source,
+          matchedKey: aiData.matchedKey,
         });
 
         const replyText =
@@ -642,25 +650,39 @@ function Messages() {
                               AI COMPANION
                             </span>
                             {aurideEngine.provider === "gemini" ? (
-                              <span
-                                className="label-mono flex items-center gap-1 rounded border border-signal/40 bg-signal/10 px-1.5 py-0.5 text-[8px] font-semibold text-signal"
-                                title={`Powered by Google ${aurideEngine.model || "gemini-2.5-flash"}${aurideEngine.latencyMs ? ` (${aurideEngine.latencyMs}ms)` : ""}`}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  toast.success(
+                                    `Gemini 2.5 Flash is LIVE (${aurideEngine.matchedKey || "GEMINI_API_KEY"} via ${aurideEngine.source || "Cloudflare"})${aurideEngine.latencyMs ? ` · ${aurideEngine.latencyMs}ms` : ""}`,
+                                  )
+                                }
+                                className="label-mono flex cursor-pointer items-center gap-1 rounded border border-signal/40 bg-signal/10 px-1.5 py-0.5 text-[8px] font-semibold text-signal transition-opacity hover:opacity-80"
+                                title={`Click for status · Live Google ${aurideEngine.model || "gemini-2.5-flash"}${aurideEngine.latencyMs ? ` (${aurideEngine.latencyMs}ms)` : ""}`}
                               >
                                 <Sparkles size={9} />
                                 <span>{aurideEngine.model || "gemini-2.5-flash"}</span>
-                              </span>
+                              </button>
                             ) : aurideEngine.provider === "cesium_graph_synthesizer" ? (
-                              <span
-                                className="label-mono flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-semibold text-amber-400 cursor-help"
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  toast.error(
+                                    aurideEngine.error
+                                      ? `Engine notice: ${aurideEngine.error}`
+                                      : "Offline Rule-Based Fallback. Add GEMINI_API_KEY to Cloudflare Pages environment variables and trigger a redeploy.",
+                                  )
+                                }
+                                className="label-mono flex cursor-pointer items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-semibold text-amber-400 transition-opacity hover:opacity-80"
                                 title={
                                   aurideEngine.error
-                                    ? `Offline Fallback: ${aurideEngine.error}`
-                                    : "Offline Rule-Based Fallback (GEMINI_API_KEY is not set or failed)"
+                                    ? `Click for details · ${aurideEngine.error}`
+                                    : "Click for details · Offline Rule-Based Fallback (GEMINI_API_KEY is not set or failed)"
                                 }
                               >
                                 <AlertCircle size={9} />
                                 <span>Rule-Based (Offline)</span>
-                              </span>
+                              </button>
                             ) : null}
                           </div>
                         )}

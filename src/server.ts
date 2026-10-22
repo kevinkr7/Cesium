@@ -97,9 +97,16 @@ export default {
         );
       }
 
+      const resolvedEnv =
+        (env && typeof env === "object" && Object.keys(env).length > 0 ? env : undefined) ||
+        (globalThis as unknown as { __env__?: unknown }).__env__ ||
+        (request as unknown as { runtime?: { cloudflare?: { env?: unknown } } })?.runtime?.cloudflare?.env ||
+        (globalThis as unknown as { env?: unknown }).env ||
+        env;
+
       if (url.pathname === "/api/media/upload" && request.method === "POST") {
         const { handleMediaUpload } = await import("./server/media");
-        const uploadRes = await handleMediaUpload(request, env);
+        const uploadRes = await handleMediaUpload(request, resolvedEnv);
         return applySecurityHeaders(uploadRes);
       }
 
@@ -108,12 +115,12 @@ export default {
         (url.pathname === "/api/auride/status" && request.method === "GET")
       ) {
         const { handleAurideChat } = await import("./server/auride");
-        const chatRes = await handleAurideChat(request, env);
+        const chatRes = await handleAurideChat(request, resolvedEnv);
         return applySecurityHeaders(chatRes);
       }
 
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
+      const response = await handler.fetch(request, resolvedEnv, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);
       return applySecurityHeaders(normalized);
     } catch (error) {

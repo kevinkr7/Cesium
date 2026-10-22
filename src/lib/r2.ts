@@ -81,6 +81,12 @@ export function getR2Config(passedEnv?: unknown): R2Config {
       ? (passedEnv as Record<string, string | undefined>)
       : {};
 
+  const gEnv =
+    (globalThis as unknown as { __env__?: unknown }).__env__ &&
+    typeof (globalThis as unknown as { __env__?: unknown }).__env__ === "object"
+      ? ((globalThis as unknown as { __env__?: Record<string, string | undefined> }).__env__ ?? {})
+      : {};
+
   const procEnv =
     typeof process !== "undefined" && process.env
       ? (process.env as Record<string, string | undefined>)
@@ -91,11 +97,22 @@ export function getR2Config(passedEnv?: unknown): R2Config {
       ? ((import.meta as any).env as Record<string, string | undefined>)
       : {};
 
+  const containers = [pEnv, gEnv, procEnv, metaEnv];
+
   const getVal = (...keys: string[]): string | undefined => {
-    for (const k of keys) {
-      if (pEnv[k]) return pEnv[k];
-      if (procEnv[k]) return procEnv[k];
-      if (metaEnv[k]) return metaEnv[k];
+    const lowerKeys = new Set(keys.map((k) => k.toLowerCase()));
+    for (const c of containers) {
+      if (!c) continue;
+      // 1. Exact match
+      for (const k of keys) {
+        if (c[k]) return c[k];
+      }
+      // 2. Case-insensitive match
+      for (const [k, v] of Object.entries(c)) {
+        if (lowerKeys.has(k.toLowerCase()) && v) {
+          return v;
+        }
+      }
     }
     return undefined;
   };
