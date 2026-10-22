@@ -90,7 +90,7 @@ function Messages() {
         if (data.geminiConfigured) {
           setAurideEngine({
             provider: "gemini",
-            model: data.preferredModel || "gemini-2.5-flash",
+            model: data.model || data.preferredModel || "gemini-3.8-flash",
             source: data.source,
             matchedKey: data.matchedKeyName,
           });
@@ -654,14 +654,14 @@ function Messages() {
                                 type="button"
                                 onClick={() =>
                                   toast.success(
-                                    `Gemini 2.5 Flash is LIVE (${aurideEngine.matchedKey || "GEMINI_API_KEY"} via ${aurideEngine.source || "Cloudflare"})${aurideEngine.latencyMs ? ` · ${aurideEngine.latencyMs}ms` : ""}`,
+                                    `Google ${aurideEngine.model || "gemini-3.8-flash"} is LIVE (${aurideEngine.matchedKey || "GEMINI_API_KEY"} via ${aurideEngine.source || "Cloudflare"})${aurideEngine.latencyMs ? ` · ${aurideEngine.latencyMs}ms` : ""}`,
                                   )
                                 }
                                 className="label-mono flex cursor-pointer items-center gap-1 rounded border border-signal/40 bg-signal/10 px-1.5 py-0.5 text-[8px] font-semibold text-signal transition-opacity hover:opacity-80"
-                                title={`Click for status · Live Google ${aurideEngine.model || "gemini-2.5-flash"}${aurideEngine.latencyMs ? ` (${aurideEngine.latencyMs}ms)` : ""}`}
+                                title={`Click for status · Live Google ${aurideEngine.model || "gemini-3.8-flash"}${aurideEngine.latencyMs ? ` (${aurideEngine.latencyMs}ms)` : ""}`}
                               >
                                 <Sparkles size={9} />
-                                <span>{aurideEngine.model || "gemini-2.5-flash"}</span>
+                                <span>{aurideEngine.model || "gemini-3.8-flash"}</span>
                               </button>
                             ) : aurideEngine.provider === "cesium_graph_synthesizer" ? (
                               <button

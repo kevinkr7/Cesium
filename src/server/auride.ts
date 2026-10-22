@@ -11,7 +11,31 @@
  * matching (GEMINI_API_KEY, gemini_api_key, GOOGLE_API_KEY).
  */
 
-export const GEMINI_TARGET_MODEL = "gemini-2.5-flash";
+export const GEMINI_TARGET_MODEL = "gemini-3.8-flash";
+
+export function getGeminiTargetModel(env?: unknown, request?: Request): string {
+  const targetKeys = ["GEMINI_MODEL", "gemini_model", "VITE_GEMINI_MODEL", "vite_gemini_model"];
+  const containers: Array<{ label: string; container: unknown }> = [
+    { label: "passed_env", container: env },
+    {
+      label: "globalThis.__env__",
+      container: (globalThis as unknown as { __env__?: unknown }).__env__,
+    },
+    {
+      label: "request.runtime.cloudflare.env",
+      container: (request as unknown as { runtime?: { cloudflare?: { env?: unknown } } })?.runtime
+        ?.cloudflare?.env,
+    },
+    { label: "process.env", container: typeof process !== "undefined" ? process.env : undefined },
+  ];
+
+  for (const c of containers) {
+    const match = searchKeyInRecord(c.container, targetKeys, c.label);
+    if (match) return match.key;
+  }
+
+  return GEMINI_TARGET_MODEL;
+}
 
 export type ChatTurn = {
   from: "me" | "them";
@@ -157,6 +181,7 @@ function formatGeminiContents(history: ChatTurn[], currentMessage: string): Gemi
 
 export async function handleAurideStatus(request: Request, env: unknown): Promise<Response> {
   const keyInfo = resolveGeminiApiKey(env, request);
+  const targetModel = getGeminiTargetModel(env, request);
 
   const sanitizeKeys = (obj: unknown): string[] => {
     if (!obj || typeof obj !== "object") return [];
@@ -174,7 +199,7 @@ export async function handleAurideStatus(request: Request, env: unknown): Promis
       status: "online",
       service: "auride_ai",
       geminiConfigured: Boolean(keyInfo.key),
-      model: GEMINI_TARGET_MODEL,
+      model: targetModel,
       keyPreview: keyInfo.key ? `${keyInfo.key.slice(0, 4)}...${keyInfo.key.slice(-4)}` : null,
       source: keyInfo.source,
       matchedKeyName: keyInfo.matchedName,
@@ -238,13 +263,14 @@ Your persona:
     let lastErrorDetails: string | null = null;
 
     if (apiKey) {
+      const targetModel = getGeminiTargetModel(env, request);
       const contents = formatGeminiContents(history, userMessage);
       const apiVersions = ["v1beta", "v1"];
 
-      // Exclusively target Gemini 2.5 Flash
+      // Exclusively target targetModel (defaulting to gemini-3.8-flash)
       for (const ver of apiVersions) {
         try {
-          const geminiEndpoint = `https://generativelanguage.googleapis.com/${ver}/models/${GEMINI_TARGET_MODEL}:generateContent?key=${apiKey}`;
+          const geminiEndpoint = `https://generativelanguage.googleapis.com/${ver}/models/${targetModel}:generateContent?key=${apiKey}`;
 
           const startTime = Date.now();
           const geminiRes = await fetch(geminiEndpoint, {
@@ -275,7 +301,7 @@ Your persona:
               JSON.stringify({
                 reply: replyText,
                 provider: "gemini",
-                model: GEMINI_TARGET_MODEL,
+                model: targetModel,
                 apiVersion: ver,
                 latencyMs: Date.now() - startTime,
                 source: keyInfo.source,
@@ -289,8 +315,8 @@ Your persona:
           }
 
           const errorBody = await geminiRes.text();
-          lastErrorDetails = `Gemini API HTTP ${geminiRes.status} on ${ver}/models/${GEMINI_TARGET_MODEL}: ${errorBody.slice(0, 300)}`;
-          console.error(`[Auride Gemini Error] (${ver}/${GEMINI_TARGET_MODEL}):`, lastErrorDetails);
+          lastErrorDetails = `Gemini API HTTP ${geminiRes.status} on ${ver}/models/${targetModel}: ${errorBody.slice(0, 300)}`;
+          console.error(`[Auride Gemini Error] (${ver}/${targetModel}):`, lastErrorDetails);
 
           // If not 404, break to preserve the primary error reason
           if (geminiRes.status !== 404) {
