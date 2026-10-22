@@ -3,16 +3,15 @@
  * AURIDE (@auri) SYNTHETIC INTELLIGENCE SERVER ENGINE
  * ============================================================================
  * Server-side AI completion engine grounded in Cesium's Constellation Graph.
- * Supports Google Gemini 2.5 Flash / 2.0 Flash / 1.5 Flash with contextual graph
- * enrichment and diagnostic fallback synthesis.
+ * Exclusively powered by Google Gemini 2.5 Flash (`gemini-2.5-flash`).
  *
- * Features:
- * - Dynamic Model Discovery via Google Generative Language ModelService.ListModels
- * - Auto-fallback across model generations and API versions (v1beta / v1)
- * - Resilient multi-container environment lookup (passed env, globalThis.__env__,
- *   request.runtime.cloudflare.env, process.env, globalThis)
- * - Case-insensitive key matching (GEMINI_API_KEY, gemini_api_key, GOOGLE_API_KEY)
+ * Resilient multi-container environment lookup:
+ * Inspects passed env, globalThis.__env__ (Nitro Cloudflare preset),
+ * request.runtime.cloudflare.env, process.env, and globalThis with case-insensitive
+ * matching (GEMINI_API_KEY, gemini_api_key, GOOGLE_API_KEY).
  */
+
+export const GEMINI_TARGET_MODEL = "gemini-2.5-flash";
 
 export type ChatTurn = {
   from: "me" | "them";
@@ -106,73 +105,6 @@ export function getGeminiApiKey(env?: unknown, request?: Request): string {
   return resolveGeminiApiKey(env, request).key;
 }
 
-export function getGeminiModel(env?: unknown, request?: Request): string {
-  const targetKeys = ["GEMINI_MODEL", "gemini_model", "VITE_GEMINI_MODEL", "vite_gemini_model"];
-  const containers: Array<{ label: string; container: unknown }> = [
-    { label: "passed_env", container: env },
-    {
-      label: "globalThis.__env__",
-      container: (globalThis as unknown as { __env__?: unknown }).__env__,
-    },
-    {
-      label: "request.runtime.cloudflare.env",
-      container: (request as unknown as { runtime?: { cloudflare?: { env?: unknown } } })?.runtime
-        ?.cloudflare?.env,
-    },
-    { label: "process.env", container: typeof process !== "undefined" ? process.env : undefined },
-    {
-      label: "import.meta.env",
-      container: typeof import.meta !== "undefined" ? (import.meta as unknown as { env?: unknown })?.env : undefined,
-    },
-  ];
-
-  for (const c of containers) {
-    const match = searchKeyInRecord(c.container, targetKeys, c.label);
-    if (match) return match.key;
-  }
-
-  return "gemini-2.5-flash";
-}
-
-let cachedModels: { models: string[]; timestamp: number } | null = null;
-
-/**
- * Queries Google Generative Language ModelService.ListModels to detect all models
- * currently activated and supported for generateContent with the user's specific API key.
- */
-async function listAvailableGeminiModels(apiKey: string): Promise<string[]> {
-  const now = Date.now();
-  if (cachedModels && now - cachedModels.timestamp < 300000 && cachedModels.models.length > 0) {
-    return cachedModels.models;
-  }
-
-  const versions = ["v1beta", "v1"];
-  for (const ver of versions) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/${ver}/models?key=${apiKey}`,
-      );
-      if (res.ok) {
-        const data = (await res.json()) as {
-          models?: Array<{ name: string; supportedGenerationMethods?: string[] }>;
-        };
-        const models = (data.models || [])
-          .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
-          .map((m) => m.name.replace(/^models\//, ""));
-
-        if (models.length > 0) {
-          cachedModels = { models, timestamp: now };
-          return models;
-        }
-      }
-    } catch {
-      // Continue to next version
-    }
-  }
-
-  return [];
-}
-
 /**
  * Sanitizes multi-turn chat history for Google Gemini:
  * 1. Strict alternation: 'user' -> 'model' -> 'user' -> 'model'
@@ -225,7 +157,6 @@ function formatGeminiContents(history: ChatTurn[], currentMessage: string): Gemi
 
 export async function handleAurideStatus(request: Request, env: unknown): Promise<Response> {
   const keyInfo = resolveGeminiApiKey(env, request);
-  const preferredModel = getGeminiModel(env, request);
 
   const sanitizeKeys = (obj: unknown): string[] => {
     if (!obj || typeof obj !== "object") return [];
@@ -238,15 +169,12 @@ export async function handleAurideStatus(request: Request, env: unknown): Promis
     });
   };
 
-  const availableModels = keyInfo.key ? await listAvailableGeminiModels(keyInfo.key) : [];
-
   return new Response(
     JSON.stringify({
       status: "online",
       service: "auride_ai",
       geminiConfigured: Boolean(keyInfo.key),
-      preferredModel,
-      availableGoogleModels: availableModels,
+      model: GEMINI_TARGET_MODEL,
       keyPreview: keyInfo.key ? `${keyInfo.key.slice(0, 4)}...${keyInfo.key.slice(-4)}` : null,
       source: keyInfo.source,
       matchedKeyName: keyInfo.matchedName,
@@ -296,7 +224,6 @@ export async function handleAurideChat(request: Request, env: unknown): Promise<
 
     const keyInfo = resolveGeminiApiKey(env, request);
     const apiKey = keyInfo.key;
-    const preferredModel = getGeminiModel(env, request);
 
     const systemPrompt = `You are Auride (@auri), Cesium's resident synthetic intelligence in Cesium Orbit.
 Cesium is an unconventional social network connecting thinkers, craftspeople, and hackers across niche obsessions, creative technologies, and cross-domain bridges.
@@ -311,106 +238,67 @@ Your persona:
     let lastErrorDetails: string | null = null;
 
     if (apiKey) {
-      // 1. Dynamic Discovery: Check what models Google enables for this specific key
-      const discovered = await listAvailableGeminiModels(apiKey);
-
-      // 2. Build candidate model list prioritizing discovered models
-      const candidates: string[] = [];
-
-      // If user preferred model exists in discovered, prioritize it
-      if (preferredModel && discovered.includes(preferredModel)) {
-        candidates.push(preferredModel);
-      }
-
-      // Add discovered models prioritized by latest flash models
-      for (const m of discovered) {
-        if (!candidates.includes(m)) candidates.push(m);
-      }
-
-      // Add standard aliases and fallbacks in case ListModels was filtered
-      const fallbackList = [
-        preferredModel,
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash-002",
-        "gemini-1.5-flash-001",
-        "gemini-flash-latest",
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-pro",
-        "gemini-1.5-pro-latest",
-        "gemini-pro",
-      ];
-
-      for (const f of fallbackList) {
-        if (f && !candidates.includes(f)) candidates.push(f);
-      }
-
       const contents = formatGeminiContents(history, userMessage);
       const apiVersions = ["v1beta", "v1"];
 
-      for (const model of candidates) {
-        let modelFound = false;
+      // Exclusively target Gemini 2.5 Flash
+      for (const ver of apiVersions) {
+        try {
+          const geminiEndpoint = `https://generativelanguage.googleapis.com/${ver}/models/${GEMINI_TARGET_MODEL}:generateContent?key=${apiKey}`;
 
-        for (const ver of apiVersions) {
-          try {
-            const geminiEndpoint = `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${apiKey}`;
+          const startTime = Date.now();
+          const geminiRes = await fetch(geminiEndpoint, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-goog-api-key": apiKey,
+            },
+            body: JSON.stringify({
+              system_instruction: {
+                parts: [{ text: systemPrompt }],
+              },
+              contents,
+              generationConfig: {
+                temperature: 0.85,
+                maxOutputTokens: 600,
+              },
+            }),
+          });
 
-            const startTime = Date.now();
-            const geminiRes = await fetch(geminiEndpoint, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                system_instruction: {
-                  parts: [{ text: systemPrompt }],
-                },
-                contents,
-                generationConfig: {
-                  temperature: 0.85,
-                  maxOutputTokens: 600,
-                },
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json();
+            const replyText =
+              geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
+              "I felt a ripple across the frequency. Let's look closer.";
+
+            return new Response(
+              JSON.stringify({
+                reply: replyText,
+                provider: "gemini",
+                model: GEMINI_TARGET_MODEL,
+                apiVersion: ver,
+                latencyMs: Date.now() - startTime,
+                source: keyInfo.source,
+                matchedKey: keyInfo.matchedName,
               }),
-            });
-
-            if (geminiRes.ok) {
-              const geminiData = await geminiRes.json();
-              const replyText =
-                geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
-                "I felt a ripple across the frequency. Let's look closer.";
-
-              return new Response(
-                JSON.stringify({
-                  reply: replyText,
-                  provider: "gemini",
-                  model,
-                  apiVersion: ver,
-                  latencyMs: Date.now() - startTime,
-                  source: keyInfo.source,
-                  matchedKey: keyInfo.matchedName,
-                }),
-                {
-                  status: 200,
-                  headers: { "content-type": "application/json" },
-                },
-              );
-            }
-
-            const errorBody = await geminiRes.text();
-            lastErrorDetails = `Gemini API HTTP ${geminiRes.status} on ${ver}/models/${model}: ${errorBody.slice(0, 300)}`;
-
-            if (geminiRes.status !== 404) {
-              // Non-404 error (e.g. 403 quota, 400 validation): log and don't retry same model
-              modelFound = true;
-              break;
-            }
-          } catch (fetchErr) {
-            lastErrorDetails = fetchErr instanceof Error ? fetchErr.message : "Network fetch failure";
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
           }
-        }
 
-        if (modelFound) {
-          break;
+          const errorBody = await geminiRes.text();
+          lastErrorDetails = `Gemini API HTTP ${geminiRes.status} on ${ver}/models/${GEMINI_TARGET_MODEL}: ${errorBody.slice(0, 300)}`;
+          console.error(`[Auride Gemini Error] (${ver}/${GEMINI_TARGET_MODEL}):`, lastErrorDetails);
+
+          // If not 404, break to preserve the primary error reason
+          if (geminiRes.status !== 404) {
+            break;
+          }
+        } catch (fetchErr) {
+          lastErrorDetails = fetchErr instanceof Error ? fetchErr.message : "Network fetch failure";
+          console.error(`[Auride Gemini Network Error]:`, fetchErr);
         }
       }
     } else {
@@ -418,7 +306,7 @@ Your persona:
         "No GEMINI_API_KEY found in server environment variables (checked passed env, globalThis.__env__, and request.runtime.cloudflare.env).";
     }
 
-    // Graph-Aware Algorithmic Synthesizer (Fallback when API key is missing or all Gemini requests fail)
+    // Graph-Aware Algorithmic Synthesizer (Fallback when API key is missing or Gemini request fails)
     const reply = generateAlgorithmicSynthesis(userMessage, userInterests);
     return new Response(
       JSON.stringify({
